@@ -4041,7 +4041,7 @@ void wfmain::useSystemTheme(bool checked)
 static QString wfview_iosTouchStyleSheet()
 {
     return QStringLiteral(
-        "QPushButton, QToolButton { min-height: 34px; padding: 4px 10px; }"
+        "QPushButton, QToolButton { min-height: 34px; padding: 2px 4px; }"
         "QComboBox, QLineEdit, QSpinBox, QDoubleSpinBox, QAbstractSpinBox { min-height: 32px; }"
         "QCheckBox::indicator, QRadioButton::indicator { width: 26px; height: 26px; }"
         "QTabBar::tab { min-height: 36px; padding: 6px 14px; }"
