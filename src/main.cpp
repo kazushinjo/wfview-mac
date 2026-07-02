@@ -28,6 +28,10 @@
 
 #include "logcategories.h"
 
+#ifdef WFVIEW_IOS
+#include "iosaudiosession.h"
+#endif
+
 bool debugMode=false;
 
 #ifdef BUILD_WFSERVER
@@ -119,6 +123,11 @@ int main(int argc, char *argv[])
     a.setOrganizationDomain("wfview.org");
     a.setApplicationName("wfview");
     a.setDesktopFileName("wfview");
+#ifdef WFVIEW_IOS
+    // Configure the iOS audio session to allow a Bluetooth (HFP) headset to be
+    // used for both microphone input and audio output.
+    configureIosAudioSession();
+#endif
 #endif
 
 #ifdef QT_DEBUG

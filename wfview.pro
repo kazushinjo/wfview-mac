@@ -175,6 +175,12 @@ ios {
     SOURCES += ../qcustomplot/qcustomplot.cpp
     HEADERS += ../qcustomplot/qcustomplot.h
 
+    # Native AVAudioSession setup (Bluetooth HFP mic + output).
+    INCLUDEPATH += ios
+    OBJECTIVE_SOURCES += ios/iosaudiosession.mm
+    HEADERS += ios/iosaudiosession.h
+    LIBS += -framework AVFoundation -framework Foundation
+
     QMAKE_INFO_PLIST = ios/Info.plist
     QMAKE_ASSET_CATALOGS += ios/Assets.xcassets
     QMAKE_ASSET_CATALOGS_APP_ICON = AppIcon
