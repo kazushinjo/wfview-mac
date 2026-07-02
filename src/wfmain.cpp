@@ -1205,6 +1205,9 @@ void wfmain::configureVFOs()
         });
 
         connect(receiver,SIGNAL(showStatusBarText(QString)),this,SLOT(showStatusBarText(QString)));
+        connect(receiver, &receiverWidget::showFreqInput, this, [=]() {
+            showAndRaiseWidget(finputbtns);
+        });
         connect(receiver,SIGNAL(sendScopeImage(uchar)),this,SLOT(receiveScopeImage(uchar)));
         receivers.append(receiver);
 

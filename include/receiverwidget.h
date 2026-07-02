@@ -149,6 +149,7 @@ signals:
     void updateScopeMode(uchar index);
     void updateSpan(centerSpanData s);
     void showStatusBarText(QString text);
+    void showFreqInput();
     void updateSettings(uchar receiver, int value, quint16 len, int floor, int ceiling);
     void elapsedTime(uchar receiver, qint64 ns);
     void dataChanged(modeInfo m);
@@ -199,8 +200,7 @@ private:
     QLinearGradient spectrumGradient;
     QLinearGradient underlayGradient;
     QList <freqCtrl*> freqDisplay;
-    QPushButton* freqUpButton = nullptr;
-    QPushButton* freqDownButton = nullptr;
+    QPushButton* freqInputButton = nullptr;
     QSpacerItem* displayLSpacer;
     QPushButton* vfoSelectButton;
     QSpacerItem* displayCSpacer;
