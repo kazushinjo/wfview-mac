@@ -539,6 +539,20 @@ void freqCtrl::mousePressEvent(QMouseEvent *event)
         {
             if (inRect(m_DigitInfo[i].dQRect, pt)) // if in i'th digit
             {
+#ifdef WFVIEW_IOS
+                // On iOS, tapping a digit selects it as the tuning step (used
+                // by the external up/down buttons), zeroes all digits below it,
+                // and highlights it, instead of in/decrementing the frequency.
+                {
+                    qint64 w = m_DigitInfo[i].weight;
+                    qint64 rounded = (m_freq / w) * w;   // zero lower digits
+                    if (rounded != m_freq)
+                        setFrequency(rounded);           // updates + emits newFrequency
+                    setActiveDigit(i);
+                    updateCtrl(true);
+                    emit stepSizeSelected(w);
+                }
+#else
                 if (m_LRMouseFreqSel)
                 {
                     incFreq();
@@ -550,6 +564,7 @@ void freqCtrl::mousePressEvent(QMouseEvent *event)
                     else
                         decFreq();                                   // bottom half
                 }
+#endif
             }
         }
     }

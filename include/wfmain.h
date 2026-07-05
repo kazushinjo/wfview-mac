@@ -498,6 +498,10 @@ private:
     bool debugMode;
     QString version;
     QSettings *settings=Q_NULLPTR;
+#ifdef WFVIEW_IOS
+    class QSlider *iosWfLevelSlider = nullptr; // waterfall colour floor, in RF/AF slider group
+    class QLabel *iosWfLevelLabel = nullptr;
+#endif
     void loadSettings();
     void saveSettings();
     void connectSettingsWidget();

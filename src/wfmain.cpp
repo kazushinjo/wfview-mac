@@ -5,6 +5,13 @@
 #include "rigidentities.h"
 #include "logcategories.h"
 
+#ifdef WFVIEW_IOS
+#include <QVBoxLayout>
+#include <QLabel>
+#include <QSlider>
+#include <QApplication>
+#endif
+
 
 // This code is copyright 2017-2024 Elliott H. Liggett and Phil E. Taylor
 // All rights reserved
@@ -230,7 +237,77 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 
     setDefaultColorPresets();
 
+#ifdef WFVIEW_IOS
+    // Add a "WF" column to the RF/AF/SQL level-slider group: a vertical slider
+    // that sets the waterfall colour floor at runtime, independent of the
+    // spectrum. Mirrors the RF/AF/SQL columns (slider on top, label below).
+    {
+        QFont mg = ui->mainGroup->font();
+        mg.setPointSizeF(8.0);
+        QVBoxLayout *wfCol = new QVBoxLayout();
+        wfCol->setSpacing(2);
+        iosWfLevelSlider = new QSlider(Qt::Vertical);
+        iosWfLevelSlider->setRange(0, 160);
+        iosWfLevelSlider->setValue(prefs.mainWfFloor); // finalised after loadSettings()
+        iosWfLevelSlider->setToolTip(QStringLiteral("ウォーターフォールの色レベル(floor)"));
+        // Match the RF/AF/SQL sliders: Fixed policy, 120px minimum height.
+        iosWfLevelSlider->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        iosWfLevelSlider->setMinimumHeight(120);
+        iosWfLevelLabel = new QLabel(QStringLiteral("WF"));
+        iosWfLevelLabel->setAlignment(Qt::AlignHCenter);
+        iosWfLevelLabel->setMaximumHeight(15);
+        iosWfLevelLabel->setFont(mg);
+        wfCol->addWidget(iosWfLevelSlider, 0, Qt::AlignHCenter);
+        wfCol->addWidget(iosWfLevelLabel, 0);
+        ui->levelsHorizontalLayout->addLayout(wfCol);
+        connect(iosWfLevelSlider, &QSlider::valueChanged, this, [this](int val){
+            prefs.mainWfFloor = val;
+            prefs.subWfFloor = val;
+            prefs.settingsChanged = true;
+            if(!receivers.isEmpty())
+                receivers.first()->setWfRange(val, prefs.mainPlotCeiling);
+            if(iosWfLevelLabel)
+                iosWfLevelLabel->setText(QStringLiteral("WF\n%1").arg(val));
+            // iOS has no Save button; persist immediately so the value is
+            // applied on the next launch. Must match the "Interface" group
+            // that saveSettings()/loadSettings() use, or it won't be read back.
+            if(settings){
+                settings->beginGroup("Interface");
+                settings->setValue("MainWfFloor", val);
+                settings->setValue("SubWfFloor", val);
+                settings->endGroup();
+                settings->sync();
+            }
+        });
+    }
+    // iOS force-quit (swipe-up) can drop CFPreferences writes that were only
+    // sync()'d mid-session. Flush settings to disk whenever the app leaves the
+    // foreground, the OS-sanctioned moment before suspension/termination.
+    connect(qApp, &QApplication::applicationStateChanged, this,
+            [this](Qt::ApplicationState state){
+        if(state != Qt::ApplicationActive && settings){
+            settings->beginGroup("Interface");
+            settings->setValue("MainWfFloor", prefs.mainWfFloor);
+            settings->setValue("SubWfFloor", prefs.subWfFloor);
+            settings->endGroup();
+            settings->sync();
+        }
+    });
+#endif
+
     loadSettings(); // Look for saved preferences
+#ifdef WFVIEW_IOS
+    // The WF-level slider was built before loadSettings(); sync it to the saved
+    // value now (blocking signals so it doesn't overwrite prefs).
+    if(iosWfLevelSlider)
+    {
+        iosWfLevelSlider->blockSignals(true);
+        iosWfLevelSlider->setValue(prefs.mainWfFloor);
+        iosWfLevelSlider->blockSignals(false);
+        if(iosWfLevelLabel)
+            iosWfLevelLabel->setText(QStringLiteral("WF\n%1").arg(prefs.mainWfFloor));
+    }
+#endif
     logWindow->ingestSettings(prefs);
 
     setManufacturer(prefs.manufacturer);
@@ -1171,6 +1248,8 @@ void wfmain::configureVFOs()
         receiver->setScrollSpeedXY(prefs.scopeScrollX, prefs.scopeScrollY);
         receiver->prepareWf(i==0?prefs.mainWflength:prefs.subWflength);
         receiver->setRange(i==0?prefs.mainPlotFloor:prefs.subPlotFloor,i==0?prefs.mainPlotCeiling:prefs.subPlotCeiling);
+        // Waterfall colour floor is independent of the spectrum plot floor above.
+        receiver->setWfRange(i==0?prefs.mainWfFloor:prefs.subWfFloor,i==0?prefs.mainPlotCeiling:prefs.subPlotCeiling);
         receiver->wfTheme(i==0?prefs.mainWfTheme:prefs.subWfTheme);
         receiver->setClickDragTuning(prefs.clickDragTuningEnable);
         receiver->setTuningFloorZeros(prefs.niceTS);
@@ -1205,9 +1284,6 @@ void wfmain::configureVFOs()
         });
 
         connect(receiver,SIGNAL(showStatusBarText(QString)),this,SLOT(showStatusBarText(QString)));
-        connect(receiver, &receiverWidget::showFreqInput, this, [=]() {
-            showAndRaiseWidget(finputbtns);
-        });
         connect(receiver,SIGNAL(sendScopeImage(uchar)),this,SLOT(receiveScopeImage(uchar)));
         receivers.append(receiver);
 
@@ -1852,6 +1928,15 @@ void wfmain::setDefPrefs()
     defPrefs.subWfTheme = static_cast<int>(QCPColorGradient::gpJet);
     defPrefs.subPlotFloor = 0;
     defPrefs.subPlotCeiling = 160;
+#ifdef WFVIEW_IOS
+    // Waterfall colour floor: adjustable at runtime from the RF/AF slider group.
+    // Default 60 so noise is dark out of the box; persisted across launches.
+    defPrefs.mainWfFloor = 60;
+    defPrefs.subWfFloor = 60;
+#else
+    defPrefs.mainWfFloor = 0;
+    defPrefs.subWfFloor = 0;
+#endif
     defPrefs.scopeScrollX = 120;
     defPrefs.scopeScrollY = 120;
     defPrefs.confirmExit = true;
@@ -1954,6 +2039,10 @@ void wfmain::loadSettings()
     prefs.subPlotFloor = settings->value("SubPlotFloor", defPrefs.subPlotFloor).toInt();
     prefs.mainPlotCeiling = settings->value("MainPlotCeiling", defPrefs.mainPlotCeiling).toInt();
     prefs.subPlotCeiling = settings->value("SubPlotCeiling", defPrefs.subPlotCeiling).toInt();
+    // Waterfall colour floor is user-adjustable (RF/AF slider group) so always
+    // load the saved value.
+    prefs.mainWfFloor = settings->value("MainWfFloor", defPrefs.mainWfFloor).toInt();
+    prefs.subWfFloor = settings->value("SubWfFloor", defPrefs.subWfFloor).toInt();
     prefs.scopeScrollX = settings->value("scopeScrollX", defPrefs.scopeScrollX).toInt();
     prefs.scopeScrollY = settings->value("scopeScrollY", defPrefs.scopeScrollY).toInt();
     prefs.decimalSeparator = settings->value("DecimalSeparator", defPrefs.decimalSeparator).toChar();
@@ -3392,6 +3481,8 @@ void wfmain::saveSettings()
     settings->setValue("WFInterpolate", prefs.wfInterpolate);
     settings->setValue("MainWFTheme", prefs.mainWfTheme);
     settings->setValue("SubWFTheme", prefs.subWfTheme);
+    settings->setValue("MainWfFloor", prefs.mainWfFloor);
+    settings->setValue("SubWfFloor", prefs.subWfFloor);
     settings->setValue("MainPlotFloor", prefs.mainPlotFloor);
     settings->setValue("SubPlotFloor", prefs.subPlotFloor);
     settings->setValue("MainPlotCeiling", prefs.mainPlotCeiling);
@@ -3835,10 +3926,13 @@ void wfmain::on_tuningStepCombo_currentIndexChanged(int index)
     for (auto &s: rigCaps->steps) {
         if (tsWfScrollHz == s.hz)
         {
+#ifndef WFVIEW_IOS
+            // iOS: stepSize is driven by tapping a frequency digit, not the combo.
             for (const auto& receiver: receivers)
             {
                 receiver->setStepSize(s.hz);
             }
+#endif
             queue->add(priorityImmediate,queueItem(funcTuningStep,QVariant::fromValue<uchar>(s.num),false));
         }
     }
@@ -4053,6 +4147,15 @@ static QString wfview_iosTouchStyleSheet()
         "QSlider::handle:horizontal { width: 28px; margin: -7px 0; }"
         "QSlider::handle:vertical { height: 28px; margin: 0 -7px; }"
         "QMenu::item { min-height: 32px; padding: 6px 24px; }"
+        // Rounded corners for the main control buttons: power on/off, transmit,
+        // tuner, CW, repeater, split and memory.
+        "QPushButton#rigPowerOnBtn, QPushButton#rigPowerOffBtn,"
+        "QPushButton#tuneNowBtn, QPushButton#cwButton,"
+        "QPushButton#rptSetupBtn, QPushButton#splitBtn, QPushButton#memoriesBtn"
+        " { border-radius: 10px; padding: 4px 10px; }"
+        // Transmit button: pale-green background at all times (crimson text is
+        // applied dynamically while transmitting).
+        "QPushButton#transmitBtn { background-color: #81c784; color: white; font-weight: bold; border-radius: 10px; padding: 4px 10px; }"
     );
 }
 #endif
@@ -4314,10 +4417,17 @@ void wfmain::changeTxBtn()
 {
     if(amTransmitting)
     {
-        ui->transmitBtn->setText("Receive");
-
+        ui->transmitBtn->setText("送信中");
+#ifdef WFVIEW_IOS
+        // While transmitting: crimson bold text on the green button.
+        ui->transmitBtn->setStyleSheet("color: crimson; font-weight: bold;");
+#endif
     } else {
-        ui->transmitBtn->setText("Transmit");
+        ui->transmitBtn->setText("送信");
+#ifdef WFVIEW_IOS
+        // Receiving: revert to the pale-green background style (set globally).
+        ui->transmitBtn->setStyleSheet("");
+#endif
     }
 }
 
@@ -4462,7 +4572,14 @@ void wfmain::on_freqDial_valueChanged(int value)
     // With the number of steps and direction of steps established,
     // we can now adjust the frequency:
 
-    f.Hz = roundFrequencyWithStep(receivers[currentReceiver]->getFrequency().Hz, delta, tsKnobHz);
+#ifdef WFVIEW_IOS
+    // iOS: the tuning step is chosen by tapping a frequency digit (stepSize),
+    // not the desktop step combo, so honour that for dial tuning.
+    unsigned int knobStep = (unsigned int)receivers[currentReceiver]->getStepSize();
+#else
+    unsigned int knobStep = tsKnobHz;
+#endif
+    f.Hz = roundFrequencyWithStep(receivers[currentReceiver]->getFrequency().Hz, delta, knobStep);
     f.MHzDouble = f.Hz / (double)1E6;
     if (f.Hz > 0)
     {
@@ -4929,10 +5046,14 @@ void wfmain::receiveTuningStep(quint8 step)
             if (step == s.num && ui->tuningStepCombo->currentData().toUInt() != s.hz) {
                 qDebug(logSystem()) << QString("Received new Tuning Step %0").arg(s.name);
                 ui->tuningStepCombo->setCurrentIndex(ui->tuningStepCombo->findData(s.hz));
+#ifndef WFVIEW_IOS
+                // iOS: stepSize is driven by tapping a frequency digit, so don't
+                // let the rig's reported tuning step override it.
                 for (const auto& receiver: receivers)
                 {
                     receiver->setStepSize(s.hz);
                 }
+#endif
                 break;
             }
         }
@@ -6918,6 +7039,12 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
 
         ui->tuningStepCombo->setCurrentIndex(2);
         ui->tuningStepCombo->blockSignals(false);
+#ifdef WFVIEW_IOS
+        // iOS: the tuning step is chosen by tapping a digit of the frequency
+        // display, which sets stepSize directly. Hide the desktop step combo
+        // so it can't override that choice.
+        ui->tuningStepCombo->hide();
+#endif
 
         setupui->updateModSourceList(0, rigCaps->inputs);
 

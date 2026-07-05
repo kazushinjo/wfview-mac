@@ -227,14 +227,14 @@
              </property>
              <property name="minimumSize">
               <size>
-               <width>60</width>
-               <height>60</height>
+               <width>130</width>
+               <height>130</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>80</width>
-               <height>80</height>
+               <width>190</width>
+               <height>190</height>
               </size>
              </property>
              <property name="accessibleName">
@@ -270,16 +270,6 @@
              </property>
              <property name="sizeAdjustPolicy">
               <enum>QComboBox::AdjustToContents</enum>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="tuneLockChk">
-             <property name="accessibleName">
-              <string>Frequency Lock</string>
-             </property>
-             <property name="text">
-              <string>F Lock</string>
              </property>
             </widget>
            </item>
@@ -326,6 +316,16 @@
                </property>
                <property name="text">
                 <string>RIT</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="tuneLockChk">
+               <property name="accessibleName">
+                <string>Frequency Lock</string>
+               </property>
+               <property name="text">
+                <string>F Lock</string>
                </property>
               </widget>
              </item>
@@ -835,7 +835,7 @@
               <string>Transmit and Receive button</string>
              </property>
              <property name="text">
-              <string>Transmit</string>
+              <string>送信</string>
              </property>
             </widget>
            </item>
@@ -864,7 +864,7 @@
               <string>Start the automatic antenna tuner cycle</string>
              </property>
              <property name="text">
-              <string>Tune</string>
+              <string>TUNE</string>
              </property>
             </widget>
            </item>

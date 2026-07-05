@@ -112,17 +112,6 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
             fr->setMaximumSize(280,30);
             displayLayout->addWidget(fr);
 
-            // Direct frequency entry button next to the frequency display.
-            // Opens the numeric keypad so the frequency can be typed directly.
-            freqInputButton = new QPushButton(tr("Input"), this);
-            freqInputButton->setMinimumSize(52, 28);
-            freqInputButton->setFocusPolicy(Qt::StrongFocus);
-            freqInputButton->setToolTip(tr("Enter frequency directly"));
-            connect(freqInputButton, &QPushButton::clicked, this, [=]() {
-                emit this->showFreqInput();
-            });
-            displayLayout->addWidget(freqInputButton);
-
             // Add the VFO buttons here.
             if (numVFO > 1) {
                 vfoSelectButton->setHidden(false);
@@ -171,6 +160,11 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
         }
         connect(fr, &freqCtrl::newFrequency, this, [=](const qint64 &freq) {
             this->newFrequency(freq,i);
+        });
+        // iOS: tapping a digit of the frequency display chooses the tuning
+        // step; update stepSize so spectrum tap-tune / scroll use it.
+        connect(fr, &freqCtrl::stepSizeSelected, this, [=](qint64 hz) {
+            if (hz > 0) stepSize = (quint64)hz;
         });
 
         freqDisplay.append(fr);
@@ -738,7 +732,7 @@ void receiverWidget::changeWfLength(uint wf)
 
     colorMap->data()->setValueRange(QCPRange(0, wfLength-1));
     colorMap->data()->setKeyRange(QCPRange(0, spectWidth-1));
-    colorMap->setDataRange(QCPRange(plotFloor, plotCeiling));
+    colorMap->setDataRange(QCPRange(wfFloor, wfCeiling));
     colorMap->setGradient(static_cast<QCPColorGradient::GradientPreset>(currentTheme));
 
     if(colorMapData != Q_NULLPTR)
@@ -786,7 +780,7 @@ bool receiverWidget::prepareWf(uint wf)
 
     colorMap->data()->setValueRange(QCPRange(0, wfLength-1));
     colorMap->data()->setKeyRange(QCPRange(0, spectWidth-1));
-    colorMap->setDataRange(QCPRange(plotFloor, plotCeiling));
+    colorMap->setDataRange(QCPRange(wfFloor, wfCeiling));
     colorMap->setGradient(static_cast<QCPColorGradient::GradientPreset>(currentTheme));
 
     if(colorMapData != Q_NULLPTR)
@@ -812,13 +806,20 @@ void receiverWidget::setRange(int floor, int ceiling)
 {
     plotFloor = floor;
     plotCeiling = ceiling;
+#ifndef WFVIEW_IOS
+    // On iOS the waterfall floor is independent (set only via setWfRange), so
+    // setRange must not touch wfFloor/wfCeiling or the colour map here — doing so
+    // would reset the user's waterfall level whenever the spectrum range is set.
     wfFloor = floor;
     wfCeiling = ceiling;
+#endif
     maxAmp = ceiling;
     if (spectrum != Q_NULLPTR)
         spectrum->yAxis->setRange(QCPRange(floor, ceiling));
+#ifndef WFVIEW_IOS
     if (colorMap != Q_NULLPTR)
         colorMap->setDataRange(QCPRange(floor,ceiling));
+#endif
     configBottom->blockSignals(true);
     configBottom->setValue(floor);
     configBottom->blockSignals(false);
@@ -833,6 +834,19 @@ void receiverWidget::setRange(int floor, int ceiling)
         b.line->end->setCoords(b.line->end->coords().x(), spectrum->yAxis->range().upper-5);
         b.text->position->setCoords(b.text->position->coords().x(), spectrum->yAxis->range().upper-10);
     }
+}
+
+// Adjust only the waterfall colour range (wfFloor/wfCeiling), leaving the
+// spectrum plot floor/ceiling untouched. The colour map is refreshed
+// immediately so the change is visible without waiting for new spectrum data.
+void receiverWidget::setWfRange(int floor, int ceiling)
+{
+    wfFloor = floor;
+    wfCeiling = ceiling;
+    if (colorMap != Q_NULLPTR)
+        colorMap->setDataRange(QCPRange(floor, ceiling));
+    if (waterfall != Q_NULLPTR)
+        waterfall->replot();
 }
 
 void receiverWidget::colorPreset(colorPrefsType *cp)

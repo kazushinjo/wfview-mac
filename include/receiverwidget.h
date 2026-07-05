@@ -44,6 +44,8 @@ public:
     void changeWfLength(uint wf);
     bool updateScope(scopeData spectrum);
     void setRange(int floor, int ceiling);
+    // Set only the waterfall colour range, independent of the spectrum plot floor.
+    void setWfRange(int floor, int ceiling);
     void wfInterpolate(bool en) { colorMap->setInterpolate(en); }
     void wfAntiAliased(bool en) { colorMap->setAntialiased(en); }
     void wfTheme(int num);
@@ -82,7 +84,7 @@ public:
 
     void setIFShift (uchar val);
 
-    quint16 getStepSize () { return stepSize;}
+    quint64 getStepSize () { return stepSize;}
     void setStepSize (quint64 hz) { stepSize = hz;}
 
     freqt getFrequency () { return freq;}
@@ -149,7 +151,6 @@ signals:
     void updateScopeMode(uchar index);
     void updateSpan(centerSpanData s);
     void showStatusBarText(QString text);
-    void showFreqInput();
     void updateSettings(uchar receiver, int value, quint16 len, int floor, int ceiling);
     void elapsedTime(uchar receiver, qint64 ns);
     void dataChanged(modeInfo m);
@@ -200,7 +201,6 @@ private:
     QLinearGradient spectrumGradient;
     QLinearGradient underlayGradient;
     QList <freqCtrl*> freqDisplay;
-    QPushButton* freqInputButton = nullptr;
     QSpacerItem* displayLSpacer;
     QPushButton* vfoSelectButton;
     QSpacerItem* displayCSpacer;
