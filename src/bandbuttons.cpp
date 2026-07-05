@@ -7,6 +7,18 @@ bandbuttons::bandbuttons(QWidget *parent) :
 {
     ui->setupUi(this);
 
+#ifdef WFVIEW_IOS
+    // iOS shows this as a full-screen window with no title bar / close control,
+    // so add an explicit back button to return to the main screen.
+    {
+        QPushButton *backBtn = new QPushButton(tr("← 戻る"), this);
+        backBtn->setFocusPolicy(Qt::StrongFocus);
+        backBtn->setMinimumHeight(40);
+        connect(backBtn, &QPushButton::clicked, this, [this](){ this->hide(); });
+        ui->verticalLayout->insertWidget(0, backBtn);
+    }
+#endif
+
     // Accessibility: the band buttons are NoFocus in the .ui. Selecting a band
     // does not transmit, so make them reachable by keyboard/VoiceOver via Tab.
     for (QPushButton* btn : ui->groupBox_3->findChildren<QPushButton*>())
