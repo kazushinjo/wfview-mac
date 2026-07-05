@@ -181,6 +181,16 @@
             </layout>
            </item>
            <item>
+            <widget class="QCheckBox" name="tuneLockChk">
+             <property name="accessibleName">
+              <string>Frequency Lock</string>
+             </property>
+             <property name="text">
+              <string>F Lock</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <layout class="QHBoxLayout" name="horizontalLayout_27">
              <item>
               <widget class="QPushButton" name="rigPowerOnBtn">
@@ -319,16 +329,6 @@
                </property>
               </widget>
              </item>
-             <item>
-              <widget class="QCheckBox" name="tuneLockChk">
-               <property name="accessibleName">
-                <string>Frequency Lock</string>
-               </property>
-               <property name="text">
-                <string>F Lock</string>
-               </property>
-              </widget>
-             </item>
             </layout>
            </item>
           </layout>
@@ -351,7 +351,7 @@
            <item>
             <layout class="QHBoxLayout" name="levelsHorizontalLayout">
              <property name="spacing">
-              <number>6</number>
+              <number>2</number>
              </property>
              <property name="sizeConstraint">
               <enum>QLayout::SetDefaultConstraint</enum>

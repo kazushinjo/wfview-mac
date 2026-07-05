@@ -243,7 +243,8 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     // spectrum. Mirrors the RF/AF/SQL columns (slider on top, label below).
     {
         QFont mg = ui->mainGroup->font();
-        mg.setPointSizeF(8.0);
+        mg.setPointSizeF(16.0);
+        mg.setBold(true);
         QVBoxLayout *wfCol = new QVBoxLayout();
         wfCol->setSpacing(2);
         iosWfLevelSlider = new QSlider(Qt::Vertical);
@@ -255,7 +256,6 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
         iosWfLevelSlider->setMinimumHeight(120);
         iosWfLevelLabel = new QLabel(QStringLiteral("WF"));
         iosWfLevelLabel->setAlignment(Qt::AlignHCenter);
-        iosWfLevelLabel->setMaximumHeight(15);
         iosWfLevelLabel->setFont(mg);
         wfCol->addWidget(iosWfLevelSlider, 0, Qt::AlignHCenter);
         wfCol->addWidget(iosWfLevelLabel, 0);
@@ -266,8 +266,6 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
             prefs.settingsChanged = true;
             if(!receivers.isEmpty())
                 receivers.first()->setWfRange(val, prefs.mainPlotCeiling);
-            if(iosWfLevelLabel)
-                iosWfLevelLabel->setText(QStringLiteral("WF\n%1").arg(val));
             // iOS has no Save button; persist immediately so the value is
             // applied on the next launch. Must match the "Interface" group
             // that saveSettings()/loadSettings() use, or it won't be read back.
@@ -304,8 +302,6 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
         iosWfLevelSlider->blockSignals(true);
         iosWfLevelSlider->setValue(prefs.mainWfFloor);
         iosWfLevelSlider->blockSignals(false);
-        if(iosWfLevelLabel)
-            iosWfLevelLabel->setText(QStringLiteral("WF\n%1").arg(prefs.mainWfFloor));
     }
 #endif
     logWindow->ingestSettings(prefs);
