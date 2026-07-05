@@ -796,14 +796,6 @@ void RxAudioProcessingWidget::buildUi()
     auto* outerLayout = new QVBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
     outerLayout->addWidget(scroll, 1);
-#ifdef WFVIEW_IOS
-    auto* backButton = new QPushButton(
-        QCoreApplication::translate("settingswidget", "Back"), this);
-    backButton->setAccessibleName(backButton->text());
-    outerLayout->addWidget(backButton);
-    connect(backButton, &QPushButton::clicked, this, &QWidget::hide);
-#endif
-
     // Start disabled — enabled when radio connects
     controlsContainer->setEnabled(false);
 

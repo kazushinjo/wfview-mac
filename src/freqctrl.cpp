@@ -541,13 +541,10 @@ void freqCtrl::mousePressEvent(QMouseEvent *event)
             {
 #ifdef WFVIEW_IOS
                 // On iOS, tapping a digit selects it as the tuning step (used
-                // by the external up/down buttons), zeroes all digits below it,
-                // and highlights it, instead of in/decrementing the frequency.
+                // by the dial and external up/down controls) and highlights it.
+                // Selecting a step must not change the current frequency.
                 {
                     qint64 w = m_DigitInfo[i].weight;
-                    qint64 rounded = (m_freq / w) * w;   // zero lower digits
-                    if (rounded != m_freq)
-                        setFrequency(rounded);           // updates + emits newFrequency
                     setActiveDigit(i);
                     updateCtrl(true);
                     emit stepSizeSelected(w);

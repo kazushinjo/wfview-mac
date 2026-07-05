@@ -112,6 +112,12 @@ void meter::clearMeterOnPTTtoggle()
     // not to clear meters that don't make sense to clear (such as Vd and Id)
 
 
+#ifdef WFVIEW_IOS
+    // Preserve the last measured SWR when transmission ends on iPad.
+    if (meterType == meterSWR)
+        return;
+#endif
+
     if( (meterType == meterALC) || (meterType == meterSWR)
             || (meterType == meterComp) || (meterType == meterTxMod)
             || (meterType == meterCenter ))

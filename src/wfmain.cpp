@@ -12,6 +12,7 @@
 #include <QSlider>
 #include <QPushButton>
 #include <QApplication>
+#include <QStyle>
 #endif
 
 
@@ -55,7 +56,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     ui->horizontalLayout_2->insertLayout(4, ui->tuningLayout);
     ui->freqDial->setFixedSize(150, 150);
     ui->freqDial->setStyleSheet(
-        QStringLiteral("QDial { background-color: #b8e6b8; border-radius: 75px; }"));
+        QStringLiteral("QDial { background-color: #f6d6a8; border-radius: 75px; }"));
     QLabel *frequencyDialLabel = new QLabel(QStringLiteral("周波数ダイアル"), ui->mainGroup);
     frequencyDialLabel->setObjectName(QStringLiteral("frequencyDialLabel"));
     frequencyDialLabel->setAlignment(Qt::AlignCenter);
@@ -326,6 +327,10 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 
     loadSettings(); // Look for saved preferences
 #ifdef WFVIEW_IOS
+    // Keep the second meter, directly below the S meter, assigned to SWR on
+    // iPad even when an older saved configuration has it disabled.
+    prefs.meter2Type = meterSWR;
+
     // The WF-level slider was built before loadSettings(); sync it to the saved
     // value now (blocking signals so it doesn't overwrite prefs).
     if(iosWfLevelSlider)
@@ -1980,7 +1985,11 @@ void wfmain::setDefPrefs()
     defPrefs.confirmSettingsChanged = true;
     defPrefs.confirmMemories = false;
     defPrefs.meter1Type = meterS;
+#ifdef WFVIEW_IOS
+    defPrefs.meter2Type = meterSWR;
+#else
     defPrefs.meter2Type = meterNone;
+#endif
     defPrefs.meter3Type = meterNone;
     defPrefs.compMeterReverse = false;
     defPrefs.region = "1";
@@ -4996,6 +5005,7 @@ void wfmain::addIosBackButton(QWidget *w)
         return;
     QPushButton *b = new QPushButton(tr("← 戻る"), w);
     b->setObjectName("iosBackBtn");
+    b->setFixedWidth(300);
     b->setMinimumHeight(40);
     connect(b, &QPushButton::clicked, w, [w](){ w->hide(); });
     if(QBoxLayout *bl = qobject_cast<QBoxLayout*>(w->layout()))
@@ -5019,7 +5029,8 @@ void wfmain::showAndRaiseWidget(QWidget *w)
         return;
 
 #ifdef WFVIEW_IOS
-    if (w == selRad || w == logWindow)
+    if (w == setupui || w == selRad || w == logWindow ||
+        w == audioProcWin || w == rxAudioProcWin)
         addIosBackButton(w);
 
     if (iosOverlayWidget && iosOverlayWidget != w)
@@ -5029,6 +5040,29 @@ void wfmain::showAndRaiseWidget(QWidget *w)
         w->setParent(this, Qt::Widget);
 
     w->setAutoFillBackground(true);
+    w->setProperty("wfviewIosPopupRoot", true);
+    w->setAttribute(Qt::WA_StyledBackground, true);
+    if (!w->property("wfviewIosLighterPopupApplied").toBool()) {
+        w->setStyleSheet(w->styleSheet() + QStringLiteral(
+            "QWidget[wfviewIosPopupRoot=\"true\"], "
+            "QWidget[wfviewIosPopupSurface=\"true\"] { background-color: #454545; }"));
+        w->setProperty("wfviewIosLighterPopupApplied", true);
+    }
+    // Apply the lighter shade to page containers that cover the popup root,
+    // while leaving buttons, input fields and other controls unchanged.
+    const QList<QWidget *> popupChildren = w->findChildren<QWidget *>();
+    for (QWidget *child : popupChildren) {
+        const QByteArray className(child->metaObject()->className());
+        if (className == "QWidget" || className == "QFrame" ||
+            className == "QStackedWidget" || className == "QScrollArea") {
+            child->setProperty("wfviewIosPopupSurface", true);
+            child->setAttribute(Qt::WA_StyledBackground, true);
+            child->style()->unpolish(child);
+            child->style()->polish(child);
+        }
+    }
+    w->style()->unpolish(w);
+    w->style()->polish(w);
     w->setMinimumSize(0, 0);
     const bool isAudioProcessor = (w == audioProcWin || w == rxAudioProcWin);
     w->setMaximumSize(w == setupui ? QSize(1200, 760)
@@ -5041,8 +5075,19 @@ void wfmain::showAndRaiseWidget(QWidget *w)
         w->setProperty("wfviewIosCompactFont", true);
     }
     iosOverlayWidget = w;
-    positionIosOverlay(w);
     w->show();
+    // The first presentation can change the effective size when Qt activates
+    // the newly-created layout (notably TX Proc). Position only after that so
+    // the first and subsequent presentations use the same coordinates.
+    if (w->layout())
+        w->layout()->activate();
+    positionIosOverlay(w);
+    if (isAudioProcessor) {
+        QTimer::singleShot(0, this, [this, w]() {
+            if (w && w->isVisible())
+                positionIosOverlay(w);
+        });
+    }
     w->raise();
     w->setFocus(Qt::OtherFocusReason);
     return;
@@ -5074,7 +5119,16 @@ void wfmain::positionIosOverlay(QWidget *w)
 
     overlaySize.setWidth(qMin(overlaySize.width(), qMin(maximumSize.width(), available.width())));
     overlaySize.setHeight(qMin(overlaySize.height(), qMin(maximumSize.height(), available.height())));
-    w->resize(overlaySize);
+    if (isAudioProcessor) {
+        // TX/RX Proc call adjustSize() while their controls are being built.
+        // A maximum size alone allows the first iOS presentation to retain
+        // that oversized geometry. Fix the overlay to the same 1000x760
+        // geometry used on later presentations; the internal scroll area
+        // handles content that does not fit.
+        w->setFixedSize(overlaySize);
+    } else {
+        w->resize(overlaySize);
+    }
     w->move(available.center() - QPoint(w->width() / 2, w->height() / 2));
 }
 #endif
@@ -5167,6 +5221,12 @@ void wfmain::receiveTuningStep(quint8 step)
 
 void wfmain::receiveMeter(meter_t inMeter, double level)
 {
+#ifdef WFVIEW_IOS
+    // SWR is meaningful while transmitting. Ignore idle readings so the
+    // display keeps the most recent measured value after transmission ends.
+    if (inMeter == meterSWR && !amTransmitting)
+        return;
+#endif
 
     switch(inMeter)
     {

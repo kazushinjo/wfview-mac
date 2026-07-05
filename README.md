@@ -9,6 +9,16 @@ source code: [gitlab](https://gitlab.com/eliggett/wfview/)
 
 ![wfview screenshot](screenshots/wfview-main.png)
 
+## iPad interface
+
+This fork includes an iPad-oriented Qt Widgets interface with the following changes:
+
+- Settings, Status, Log, band selection, frequency entry, TX Proc, and RX Proc are displayed as centered in-app overlays instead of iOS top-level windows.
+- Overlay screens provide a 300-pixel-wide back button. TX Proc and RX Proc use a fixed, scrollable 1000 x 760 layout so their first and subsequent presentations remain in the same position.
+- The second meter is assigned to SWR on iPad and retains the last measured SWR value after transmission ends.
+- Tapping a frequency digit selects that digit as the tuning step without changing the current frequency.
+- The enlarged frequency dial is labelled in Japanese and uses a pale-orange finish.
+
 **For screenshots, documentation, User FAQ, Programmer FAQ, and more, please [see the project's website, wfview.org](https://wfview.org/).**
 
 Links for Users: 

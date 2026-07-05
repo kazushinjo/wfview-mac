@@ -23,7 +23,14 @@ AudioProcessingWidget::AudioProcessingWidget(QWidget* parent)
     : QDialog(parent)
 {
     setWindowTitle(tr("TX Audio Processing"));
+#ifdef WFVIEW_IOS
+    // Create the iPad panel as an embedded widget from the outset. Converting
+    // a top-level QDialog on its first show leaves iOS using a different
+    // initial window position than subsequent overlay presentations.
+    setWindowFlags(Qt::Widget);
+#else
     setWindowFlags(windowFlags() | Qt::Window);
+#endif
     buildUi();
     connect(&m_specDiagTimer, &QTimer::timeout,
             this, &AudioProcessingWidget::onSpecDiagTimer);
@@ -689,14 +696,6 @@ void AudioProcessingWidget::buildUi()
             this, &AudioProcessingWidget::onAnyControlChanged);
     connect(gateHfCutoff,  &QSlider::valueChanged,
             this, &AudioProcessingWidget::onAnyControlChanged);
-
-#ifdef WFVIEW_IOS
-    auto* backButton = new QPushButton(
-        QCoreApplication::translate("settingswidget", "Back"), this);
-    backButton->setAccessibleName(backButton->text());
-    outerLayout->addWidget(backButton);
-    connect(backButton, &QPushButton::clicked, this, &QWidget::hide);
-#endif
 
     adjustSize();
 }
