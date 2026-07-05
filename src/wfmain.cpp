@@ -294,6 +294,10 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
             settings->sync();
         }
     });
+    // Shift the status-bar content left and widen the rig-name label so the
+    // rig name ("IC-7300") isn't clipped at the right screen edge.
+    ui->statusBar->setContentsMargins(6, 0, 30, 0);
+    if(rigName) rigName->setFixedWidth(100);
 #endif
 
     loadSettings(); // Look for saved preferences
