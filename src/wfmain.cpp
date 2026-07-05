@@ -238,6 +238,9 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     setDefaultColorPresets();
 
 #ifdef WFVIEW_IOS
+    // Raise the level sliders: remove the expanding spacer above them so the
+    // tall sliders don't overlap the "Other Controls" label below.
+    ui->controlsLayout->removeItem(ui->verticalSpacer);
     // Add a "WF" column to the RF/AF/SQL level-slider group: a vertical slider
     // that sets the waterfall colour floor at runtime, independent of the
     // spectrum. Mirrors the RF/AF/SQL columns (slider on top, label below).
