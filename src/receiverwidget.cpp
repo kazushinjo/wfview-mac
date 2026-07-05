@@ -172,7 +172,11 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
 
 
     controlLayout = new QHBoxLayout();
+#ifdef WFVIEW_IOS
+    detachButton = new QPushButton(QStringLiteral("切離し"));
+#else
     detachButton = new QPushButton(tr("Detach"));
+#endif
     detachButton->setCheckable(true);
     detachButton->setToolTip(tr("Detach/re-attach scope from main window"));
     detachButton->setChecked(false);
@@ -2653,6 +2657,44 @@ void receiverWidget::setRefLimits(int lower, int upper)
 
 void receiverWidget::detachScope(bool state)
 {
+#ifdef WFVIEW_IOS
+    if (state)
+    {
+        windowLabel = new QLabel();
+        detachButton->setText(QStringLiteral("戻す"));
+        qInfo(logGui()) << "Detaching scope" << (receiver?"Sub":"Main");
+
+        QWidget *scopeParent = parentWidget();
+        if (scopeParent && scopeParent->layout())
+            scopeParent->layout()->replaceWidget(this, windowLabel);
+
+        setParent(nullptr, Qt::Window);
+        setWindowTitle(title());
+        showFullScreen();
+    }
+    else
+    {
+        detachButton->setText(QStringLiteral("切離し"));
+        qInfo(logGui()) << "Attaching scope" << (receiver?"Sub":"Main");
+
+        QWidget *scopeParent = windowLabel ? windowLabel->parentWidget() : originalParent;
+        QLayout *scopeLayout = scopeParent ? scopeParent->layout() : nullptr;
+        setParent(scopeParent, Qt::Widget);
+        if (scopeLayout && windowLabel)
+            scopeLayout->replaceWidget(windowLabel, this);
+
+        delete windowLabel;
+        windowLabel = nullptr;
+        show();
+
+        // Detaching an iOS top-level widget must never alter the main window's
+        // geometry. Restore the app window to the device screen on attach.
+        if (originalParent)
+            originalParent->showFullScreen();
+    }
+    return;
+#endif
+
     if (state)
     {
         windowLabel = new QLabel();
