@@ -501,6 +501,8 @@ private:
 #ifdef WFVIEW_IOS
     class QSlider *iosWfLevelSlider = nullptr; // waterfall colour floor, in RF/AF slider group
     class QLabel *iosWfLevelLabel = nullptr;
+    // Add a "← 戻る" back button to a full-screen popup so it can be dismissed.
+    void addIosBackButton(QWidget *w);
 #endif
     void loadSettings();
     void saveSettings();

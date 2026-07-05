@@ -7,8 +7,10 @@
 
 #ifdef WFVIEW_IOS
 #include <QVBoxLayout>
+#include <QBoxLayout>
 #include <QLabel>
 #include <QSlider>
+#include <QPushButton>
 #include <QApplication>
 #endif
 
@@ -4961,11 +4963,38 @@ void wfmain::setRadioTimeDateSend()
     waitingToSetTimeDate = false;
 }
 
+#ifdef WFVIEW_IOS
+void wfmain::addIosBackButton(QWidget *w)
+{
+    if(!w || w->findChild<QPushButton*>("iosBackBtn"))
+        return;
+    QPushButton *b = new QPushButton(tr("← 戻る"), w);
+    b->setObjectName("iosBackBtn");
+    b->setMinimumHeight(40);
+    connect(b, &QPushButton::clicked, w, [w](){ w->hide(); });
+    if(QBoxLayout *bl = qobject_cast<QBoxLayout*>(w->layout()))
+    {
+        bl->insertWidget(0, b);
+    }
+    else
+    {
+        // Non-box top layout (grid etc.): overlay at the top-left corner.
+        b->adjustSize();
+        b->move(6, 6);
+        b->raise();
+        b->show();
+    }
+}
+#endif
+
 void wfmain::showAndRaiseWidget(QWidget *w)
 {
     if(!w)
         return;
 
+#ifdef WFVIEW_IOS
+    addIosBackButton(w);
+#endif
     if(w->isMinimized())
     {
         w->raise();
@@ -5584,6 +5613,9 @@ void wfmain::on_radioStatusBtn_clicked()
     }
     else
     {
+#ifdef WFVIEW_IOS
+        addIosBackButton(selRad);
+#endif
         selRad->show();
     }
 }
@@ -5648,6 +5680,9 @@ void wfmain::setDefaultColorPresets()
 
 void wfmain::on_showLogBtn_clicked()
 {
+#ifdef WFVIEW_IOS
+    addIosBackButton(logWindow);
+#endif
     if(logWindow->isMinimized())
     {
         logWindow->raise();
@@ -5952,6 +5987,9 @@ void wfmain::on_TXaudioProcBtn_clicked()
                     audioProcWin, &AudioProcessingWidget::onSpectrumBins);
         }
     }
+#ifdef WFVIEW_IOS
+    addIosBackButton(audioProcWin);
+#endif
     audioProcWin->show();
     audioProcWin->raise();
     audioProcWin->activateWindow();
@@ -6045,6 +6083,9 @@ void wfmain::on_RXaudioProcBtn_clicked()
                     rxAudioProcWin, &RxAudioProcessingWidget::onDebugCaptureComplete);
         }
     }
+#ifdef WFVIEW_IOS
+    addIosBackButton(rxAudioProcWin);
+#endif
     rxAudioProcWin->show();
     rxAudioProcWin->raise();
     rxAudioProcWin->activateWindow();
