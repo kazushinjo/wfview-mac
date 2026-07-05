@@ -2,6 +2,7 @@
 
 #include "audioprocessingwidget.h"
 #include "logcategories.h"
+#include <QScrollArea>
 #include <cmath>
 
 // MBEQ band centre frequencies (Hz) — must match MbeqProcessor::bandFreqs
@@ -277,7 +278,19 @@ void AudioProcessingWidget::setProcessingControlsEnabled(bool enabled)
 
 void AudioProcessingWidget::buildUi()
 {
+#ifdef WFVIEW_IOS
+    auto* outerLayout = new QVBoxLayout(this);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    auto* scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    auto* content = new QWidget;
+    auto* mainLayout = new QVBoxLayout(content);
+    scroll->setWidget(content);
+    outerLayout->addWidget(scroll, 1);
+#else
     auto* mainLayout = new QVBoxLayout(this);
+#endif
 
     // ── Master bypass ────────────────────────────────────────────────────────
     {
@@ -676,6 +689,14 @@ void AudioProcessingWidget::buildUi()
             this, &AudioProcessingWidget::onAnyControlChanged);
     connect(gateHfCutoff,  &QSlider::valueChanged,
             this, &AudioProcessingWidget::onAnyControlChanged);
+
+#ifdef WFVIEW_IOS
+    auto* backButton = new QPushButton(
+        QCoreApplication::translate("settingswidget", "Back"), this);
+    backButton->setAccessibleName(backButton->text());
+    outerLayout->addWidget(backButton);
+    connect(backButton, &QPushButton::clicked, this, &QWidget::hide);
+#endif
 
     adjustSize();
 }

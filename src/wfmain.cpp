@@ -49,6 +49,29 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     setWindowTitle(QString("wfview"));
 
     ui->monitorLabel->setText("Mon");
+#ifdef WFVIEW_IOS
+    ui->tuningStepCombo->hide();
+    ui->horizontalLayout_2->removeItem(ui->tuningLayout);
+    ui->horizontalLayout_2->insertLayout(4, ui->tuningLayout);
+    ui->freqDial->setFixedSize(150, 150);
+    ui->freqDial->setStyleSheet(
+        QStringLiteral("QDial { background-color: #b8e6b8; border-radius: 75px; }"));
+    QLabel *frequencyDialLabel = new QLabel(QStringLiteral("周波数ダイアル"), ui->mainGroup);
+    frequencyDialLabel->setObjectName(QStringLiteral("frequencyDialLabel"));
+    frequencyDialLabel->setAlignment(Qt::AlignCenter);
+    ui->tuningLayout->insertWidget(0, frequencyDialLabel);
+    ui->tuningLayout->setContentsMargins(30, 50, 0, 0);
+    ui->tuningLayout->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
+    ui->tuningLayout->setAlignment(ui->freqDial, Qt::AlignCenter);
+
+    const QList<QPushButton *> roundedControlButtons = {
+        ui->rigPowerOnBtn, ui->rigPowerOffBtn, ui->transmitBtn,
+        ui->tuneNowBtn, ui->cwButton, ui->rptSetupBtn, ui->memoriesBtn
+    };
+    for (QPushButton *button : roundedControlButtons)
+        button->setStyleSheet(button->styleSheet()
+                              + QStringLiteral("QPushButton { border-radius: 10px; }"));
+#endif
 
     // Accessibility: the operating buttons are NoFocus in the .ui so the tuning
     // controls keep keyboard focus. That leaves keyboard-only and VoiceOver
@@ -59,7 +82,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
         ui->cwButton, ui->rptSetupBtn, ui->memoriesBtn,
         ui->dualWatchBtn, ui->scopeDualBtn, ui->scopeMainSubBtn,
         ui->splitBtn, ui->swapMainSubBtn, ui->mainEqualsSubBtn,
-        ui->aboutBtn, ui->showSettingsBtn, ui->saveSettingsBtn,
+        ui->showSettingsBtn, ui->saveSettingsBtn,
         ui->radioStatusBtn, ui->showLogBtn, ui->showBandsBtn,
         ui->showFreqBtn, ui->rigCreatorBtn, ui->TXaudioProcBtn,
         ui->RXaudioProcBtn, ui->connectBtn, ui->exitBtn
@@ -121,7 +144,6 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     cal = new calibrationWindow();
     rpt = new repeaterSetup();
     sat = new satelliteSetup();
-    abtBox = new aboutbox();
     selRad = new selectRadio();
     bandbtns = new bandbuttons();
 
@@ -557,6 +579,15 @@ void wfmain::closeEvent(QCloseEvent *event)
     if (on_exitBtn_clicked())
         event->ignore();
 
+}
+
+void wfmain::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+#ifdef WFVIEW_IOS
+    if (iosOverlayWidget && iosOverlayWidget->isVisible())
+        positionIosOverlay(iosOverlayWidget);
+#endif
 }
 
 void wfmain::openRig()
@@ -4600,11 +4631,6 @@ void wfmain::on_freqDial_valueChanged(int value)
     }
 }
 
-void wfmain::on_aboutBtn_clicked()
-{
-    abtBox->show();
-}
-
 void wfmain::gotoMemoryPreset(int presetNumber)
 {
     preset_kind temp = mem.getPreset(presetNumber);
@@ -4993,7 +5019,33 @@ void wfmain::showAndRaiseWidget(QWidget *w)
         return;
 
 #ifdef WFVIEW_IOS
-    addIosBackButton(w);
+    if (w == selRad || w == logWindow)
+        addIosBackButton(w);
+
+    if (iosOverlayWidget && iosOverlayWidget != w)
+        iosOverlayWidget->hide();
+
+    if (w->parentWidget() != this || w->isWindow())
+        w->setParent(this, Qt::Widget);
+
+    w->setAutoFillBackground(true);
+    w->setMinimumSize(0, 0);
+    const bool isAudioProcessor = (w == audioProcWin || w == rxAudioProcWin);
+    w->setMaximumSize(w == setupui ? QSize(1200, 760)
+                                   : (isAudioProcessor ? QSize(1000, 760) : QSize(560, 470)));
+    if (w == setupui && !w->property("wfviewIosCompactFont").toBool()) {
+        QFont compactFont = w->font();
+        if (compactFont.pointSizeF() > 1.0)
+            compactFont.setPointSizeF(compactFont.pointSizeF() - 1.0);
+        w->setFont(compactFont);
+        w->setProperty("wfviewIosCompactFont", true);
+    }
+    iosOverlayWidget = w;
+    positionIosOverlay(w);
+    w->show();
+    w->raise();
+    w->setFocus(Qt::OtherFocusReason);
+    return;
 #endif
     if(w->isMinimized())
     {
@@ -5005,6 +5057,27 @@ void wfmain::showAndRaiseWidget(QWidget *w)
     w->raise();
     w->activateWindow();
 }
+
+#ifdef WFVIEW_IOS
+void wfmain::positionIosOverlay(QWidget *w)
+{
+    if (!w)
+        return;
+
+    const QRect available = contentsRect().adjusted(8, 8, -8, -8);
+    const bool isAudioProcessor = (w == audioProcWin || w == rxAudioProcWin);
+    const QSize maximumSize = (w == setupui) ? QSize(1200, 760)
+                                             : (isAudioProcessor ? QSize(1000, 760) : QSize(560, 470));
+    QSize overlaySize = (w == setupui || isAudioProcessor) ? maximumSize : w->sizeHint();
+    if (!overlaySize.isValid())
+        overlaySize = w->size();
+
+    overlaySize.setWidth(qMin(overlaySize.width(), qMin(maximumSize.width(), available.width())));
+    overlaySize.setHeight(qMin(overlaySize.height(), qMin(maximumSize.height(), available.height())));
+    w->resize(overlaySize);
+    w->move(available.center() - QPoint(w->width() / 2, w->height() / 2));
+}
+#endif
 
 void wfmain::changeSliderQuietly(QSlider *slider, int value)
 {
@@ -5613,10 +5686,7 @@ void wfmain::on_radioStatusBtn_clicked()
     }
     else
     {
-#ifdef WFVIEW_IOS
-        addIosBackButton(selRad);
-#endif
-        selRad->show();
+        showAndRaiseWidget(selRad);
     }
 }
 
@@ -5680,18 +5750,7 @@ void wfmain::setDefaultColorPresets()
 
 void wfmain::on_showLogBtn_clicked()
 {
-#ifdef WFVIEW_IOS
-    addIosBackButton(logWindow);
-#endif
-    if(logWindow->isMinimized())
-    {
-        logWindow->raise();
-        logWindow->activateWindow();
-        return;
-    }
-    logWindow->show();
-    logWindow->raise();
-    logWindow->activateWindow();
+    showAndRaiseWidget(logWindow);
 }
 
 void wfmain::initLogging()
@@ -5987,12 +6046,7 @@ void wfmain::on_TXaudioProcBtn_clicked()
                     audioProcWin, &AudioProcessingWidget::onSpectrumBins);
         }
     }
-#ifdef WFVIEW_IOS
-    addIosBackButton(audioProcWin);
-#endif
-    audioProcWin->show();
-    audioProcWin->raise();
-    audioProcWin->activateWindow();
+    showAndRaiseWidget(audioProcWin);
 }
 
 void wfmain::onAudioProcPrefsChanged(txAudioProcessingPrefs p)
@@ -6083,12 +6137,7 @@ void wfmain::on_RXaudioProcBtn_clicked()
                     rxAudioProcWin, &RxAudioProcessingWidget::onDebugCaptureComplete);
         }
     }
-#ifdef WFVIEW_IOS
-    addIosBackButton(rxAudioProcWin);
-#endif
-    rxAudioProcWin->show();
-    rxAudioProcWin->raise();
-    rxAudioProcWin->activateWindow();
+    showAndRaiseWidget(rxAudioProcWin);
 }
 
 void wfmain::onRxAudioProcPrefsChanged(rxAudioProcessingPrefs p)

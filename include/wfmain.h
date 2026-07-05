@@ -7,6 +7,7 @@
 
 #include <QMainWindow>
 #include <QCloseEvent>
+#include <QResizeEvent>
 #include <QThread>
 #include <QString>
 #include <QVector>
@@ -50,7 +51,6 @@
 #include "yaesuserver.h"
 #include "qledlabel.h"
 #include "rigctld.h"
-#include "aboutbox.h"
 #include "selectradio.h"
 #include "colorprefs.h"
 #include "loggingwindow.h"
@@ -402,7 +402,6 @@ private slots:
     void changeFullScreenMode(bool checked);
 
     void on_freqDial_valueChanged(int value);
-    void on_aboutBtn_clicked();
 
     void on_rfGainSlider_valueChanged(int value);
     void on_afGainSlider_valueChanged(int value);
@@ -494,6 +493,7 @@ private:
     Ui::wfmain *ui; // Main UI
     QVector<receiverWidget*>receivers;   // Spectrum Scope items.
     void closeEvent(QCloseEvent *event);
+    void resizeEvent(QResizeEvent *event) override;
     QString logFilename;
     bool debugMode;
     QString version;
@@ -633,6 +633,10 @@ private:
     void changePrimaryMeter(bool transmitOn);
     void changeSliderQuietly(QSlider *slider, int value);
     void showAndRaiseWidget(QWidget *w);
+#ifdef WFVIEW_IOS
+    void positionIosOverlay(QWidget *w);
+    QWidget *iosOverlayWidget = Q_NULLPTR;
+#endif
     void statusFromSliderPercent(QString name, int percentValue);
     void statusFromSliderRaw(QString name, int rawValue);
 
@@ -679,7 +683,6 @@ private:
     //transceiverAdjustments *trxadj = Q_NULLPTR;
     cwSender *cw = Q_NULLPTR;
     controllerSetup* usbWindow = Q_NULLPTR;
-    aboutbox *abtBox = Q_NULLPTR;
     selectRadio *selRad = Q_NULLPTR;
     loggingWindow *logWindow = Q_NULLPTR;
     rigCreator *creator = Q_NULLPTR;

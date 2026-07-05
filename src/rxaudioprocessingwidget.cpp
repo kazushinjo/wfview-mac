@@ -795,7 +795,14 @@ void RxAudioProcessingWidget::buildUi()
 
     auto* outerLayout = new QVBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
-    outerLayout->addWidget(scroll);
+    outerLayout->addWidget(scroll, 1);
+#ifdef WFVIEW_IOS
+    auto* backButton = new QPushButton(
+        QCoreApplication::translate("settingswidget", "Back"), this);
+    backButton->setAccessibleName(backButton->text());
+    outerLayout->addWidget(backButton);
+    connect(backButton, &QPushButton::clicked, this, &QWidget::hide);
+#endif
 
     // Start disabled — enabled when radio connects
     controlsContainer->setEnabled(false);
@@ -1139,6 +1146,12 @@ void RxAudioProcessingWidget::updateAnrControlState()
 
 void RxAudioProcessingWidget::updateSizeConstraints()
 {
+#ifdef WFVIEW_IOS
+    setMinimumHeight(0);
+    setMaximumHeight(QWIDGETSIZE_MAX);
+    return;
+#endif
+
     // Guard against setMinimumHeight/setMaximumHeight triggering resizeEvent
     // before we reach our own resize() call — that would corrupt m_userSpectrumHeight.
     m_programmaticResize = true;

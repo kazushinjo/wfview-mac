@@ -11,6 +11,23 @@ settingswidget::settingswidget(QWidget *parent) :
 {
     ui->setupUi(this);
 
+#ifdef WFVIEW_IOS
+    ui->settingsList->setMinimumWidth(220);
+    ui->settingsList->setMaximumWidth(220);
+
+    QFont informationFont = ui->label_53->font();
+    if (informationFont.pointSizeF() > 2.0)
+        informationFont.setPointSizeF(informationFont.pointSizeF() - 2.0);
+    ui->label_53->setFont(informationFont);
+    ui->label_53->setWordWrap(true);
+
+    QPushButton *backButton = new QPushButton(tr("Back"), this);
+    backButton->setObjectName(QStringLiteral("settingsBackButton"));
+    backButton->setAccessibleName(tr("Back"));
+    ui->bottomButtonsLayout->addWidget(backButton);
+    connect(backButton, &QPushButton::clicked, this, &QWidget::hide);
+#endif
+
     connect(ui->serverUsersTable,SIGNAL(rowAdded(int)),this, SLOT(serverAddUserLine(int)));
     connect(ui->serverUsersTable,SIGNAL(rowDeleted(int)),this,SLOT(serverDeleteUserLine(int)));
     connect(ui->serverUsersAddBtn, &QPushButton::clicked, ui->serverUsersTable, &tableWidget::addItem);
@@ -3419,6 +3436,9 @@ void settingswidget::on_connectBtn_clicked()
 void settingswidget::on_saveSettingsBtn_clicked()
 {
     emit saveSettingsButtonPressed();
+#ifdef WFVIEW_IOS
+    hide();
+#endif
 }
 
 void settingswidget::on_revertSettingsBtn_clicked()

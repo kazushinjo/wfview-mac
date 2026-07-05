@@ -270,6 +270,9 @@ void bandbuttons::bandStackBtnClick(availableBands band)
                         QVariant::fromValue<bandStackType>(bandStackType(b.bsr,ui->bandStkPopdown->currentIndex()+1)),false,uchar(0)));
                 }
                 requestedBand = band;
+#ifdef WFVIEW_IOS
+                hide();
+#endif
                 break;
             }
         }

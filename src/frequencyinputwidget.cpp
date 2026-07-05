@@ -178,9 +178,13 @@ void frequencyinputwidget::on_fEnterBtn_clicked()
 
 void frequencyinputwidget::on_fBackbtn_clicked()
 {
+#ifdef WFVIEW_IOS
+    hide();
+#else
     QString currentFreq = ui->freqMhzLineEdit->text();
     currentFreq.chop(1);
     ui->freqMhzLineEdit->setText(currentFreq);
+#endif
 }
 
 void frequencyinputwidget::on_goFreqBtn_clicked()
