@@ -338,10 +338,12 @@ int main(int argc, char *argv[])
     a.setWheelScrollLines(1); // one line per wheel click
     wfmain w(settingsFile, logFilename, debugMode);
 #ifdef WFVIEW_IOS
-    // iPad/iPhone have no window manager; the app must own the whole screen.
-    w.showFullScreen();
-#else
+    // iOS makes the application's top-level window fullscreen itself.  Calling
+    // showFullScreen() after show() recreates the native window geometry and can
+    // leave Qt's logical width larger than the device viewport.
     w.show();
+#else
+    w.showMaximized();
 #endif
 
 #endif

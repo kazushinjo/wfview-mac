@@ -145,8 +145,9 @@ public slots: // Can be called directly or updated via signal/slot
     void receiveSpots(uchar receiver, QList<spotData> spots);
     void memoryMode(bool en);
 
+protected:
 
-signals:    
+signals:
     void frequencyRange(uchar receiver, double start, double end);
     void updateScopeMode(uchar index);
     void updateSpan(centerSpanData s);

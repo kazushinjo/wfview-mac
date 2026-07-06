@@ -8,6 +8,8 @@
 #include <QMainWindow>
 #include <QCloseEvent>
 #include <QResizeEvent>
+#include <QWidget>
+#include <QHBoxLayout>
 #include <QThread>
 #include <QString>
 #include <QVector>
@@ -501,6 +503,8 @@ private:
 #ifdef WFVIEW_IOS
     class QSlider *iosWfLevelSlider = nullptr; // waterfall colour floor, in RF/AF slider group
     class QLabel *iosWfLevelLabel = nullptr;
+    class QPushButton *iosLockButton = nullptr;
+    bool iosFineTuning = false; // Force the frequency dial to 1 Hz steps.
     // Add a "← 戻る" back button to a full-screen popup so it can be dismissed.
     void addIosBackButton(QWidget *w);
 #endif
@@ -572,6 +576,8 @@ private:
     QLabel* rigName;
     QLedLabel* pttLed;
     QLedLabel* connectedLed;
+    QWidget* iosRigStatusWidget = Q_NULLPTR;
+    QHBoxLayout* iosRigStatusLayout = Q_NULLPTR;
 
     double passbandWidth = 0.0;
 

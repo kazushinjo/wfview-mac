@@ -8,9 +8,11 @@
 #ifdef WFVIEW_IOS
 #include <QVBoxLayout>
 #include <QBoxLayout>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QSlider>
 #include <QPushButton>
+#include <QCheckBox>
 #include <QApplication>
 #include <QStyle>
 #endif
@@ -52,18 +54,82 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     ui->monitorLabel->setText("Mon");
 #ifdef WFVIEW_IOS
     ui->tuningStepCombo->hide();
+    // These groups depend on the connected radio's capabilities.  Keeping the
+    // Designer defaults visible before capability discovery gives the main
+    // window a minimum width larger than an iPad landscape viewport.
+    ui->scopeSettingsGroup->hide();
+    ui->preampAttGroup->hide();
+    ui->antennaGroup->hide();
     ui->horizontalLayout_2->removeItem(ui->tuningLayout);
     ui->horizontalLayout_2->insertLayout(4, ui->tuningLayout);
-    ui->freqDial->setFixedSize(150, 150);
+    ui->freqDial->setFixedSize(140, 140);
     ui->freqDial->setStyleSheet(
-        QStringLiteral("QDial { background-color: #f6d6a8; border-radius: 75px; }"));
+        QStringLiteral("QDial { background-color: #f6d6a8; border-radius: 70px; }"));
     QLabel *frequencyDialLabel = new QLabel(QStringLiteral("周波数ダイアル"), ui->mainGroup);
     frequencyDialLabel->setObjectName(QStringLiteral("frequencyDialLabel"));
     frequencyDialLabel->setAlignment(Qt::AlignCenter);
     ui->tuningLayout->insertWidget(0, frequencyDialLabel);
-    ui->tuningLayout->setContentsMargins(30, 50, 0, 0);
+    ui->tuningLayout->setContentsMargins(30, 20, 0, 0);
     ui->tuningLayout->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
     ui->tuningLayout->setAlignment(ui->freqDial, Qt::AlignCenter);
+    ui->tuningLayout->insertSpacing(2, 10);
+
+    QHBoxLayout *fineLockLayout = new QHBoxLayout;
+    fineLockLayout->setContentsMargins(0, 0, 0, 0);
+    fineLockLayout->setSpacing(8);
+
+    ui->horizontalLayout_25->removeWidget(ui->ritTuneDial);
+    ui->horizontalLayout_25->removeWidget(ui->ritEnableChk);
+
+    QHBoxLayout *ritInlineLayout = new QHBoxLayout;
+    ritInlineLayout->setContentsMargins(0, 0, 0, 0);
+    ritInlineLayout->setSpacing(4);
+
+    QPushButton *fineButton = new QPushButton(QStringLiteral("Fine"), ui->mainGroup);
+    fineButton->setObjectName(QStringLiteral("fineTuningButton"));
+    fineButton->setCheckable(true);
+    fineButton->setFixedWidth(80);
+    fineButton->setToolTip(QStringLiteral("周波数ダイアルを1 Hzステップに切り替えます"));
+    fineButton->setStyleSheet(QStringLiteral(
+        "QPushButton { border-radius: 8px; }"
+        "QPushButton:checked { background-color: #f6d6a8; color: #202124; }"));
+    fineLockLayout->addWidget(fineButton);
+
+    iosLockButton = new QPushButton(QStringLiteral("Lock"), ui->mainGroup);
+    iosLockButton->setObjectName(QStringLiteral("frequencyLockButton"));
+    iosLockButton->setCheckable(true);
+    iosLockButton->setFixedWidth(80);
+    iosLockButton->setToolTip(QStringLiteral("周波数をロックします"));
+    iosLockButton->setStyleSheet(QStringLiteral(
+        "QPushButton { border-radius: 8px; }"
+        "QPushButton:checked { background-color: #f6d6a8; color: #202124; }"));
+    fineLockLayout->addWidget(iosLockButton);
+
+    ritInlineLayout->addWidget(ui->ritTuneDial);
+    ritInlineLayout->addWidget(ui->ritEnableChk);
+    fineLockLayout->addLayout(ritInlineLayout);
+
+    ui->tuningLayout->addLayout(fineLockLayout);
+    connect(fineButton, &QPushButton::toggled, this, [this](bool checked) {
+        iosFineTuning = checked;
+    });
+    connect(iosLockButton, &QPushButton::toggled, this, [this](bool checked) {
+        if (ui->tuneLockChk->isChecked() != checked)
+        {
+            ui->tuneLockChk->blockSignals(true);
+            ui->tuneLockChk->setChecked(checked);
+            ui->tuneLockChk->blockSignals(false);
+        }
+        on_tuneLockChk_clicked(checked);
+    });
+    connect(ui->tuneLockChk, &QCheckBox::toggled, this, [this](bool checked) {
+        if (iosLockButton == nullptr)
+            return;
+        iosLockButton->blockSignals(true);
+        iosLockButton->setChecked(checked);
+        iosLockButton->blockSignals(false);
+    });
+    iosLockButton->setChecked(ui->tuneLockChk->isChecked());
 
     const QList<QPushButton *> roundedControlButtons = {
         ui->rigPowerOnBtn, ui->rigPowerOffBtn, ui->transmitBtn,
@@ -72,6 +138,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     for (QPushButton *button : roundedControlButtons)
         button->setStyleSheet(button->styleSheet()
                               + QStringLiteral("QPushButton { border-radius: 10px; }"));
+
 #endif
 
     // Accessibility: the operating buttons are NoFocus in the .ui so the tuning
@@ -319,10 +386,6 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
             settings->sync();
         }
     });
-    // Shift the status-bar content left and widen the rig-name label so the
-    // rig name ("IC-7300") isn't clipped at the right screen edge.
-    ui->statusBar->setContentsMargins(6, 0, 30, 0);
-    if(rigName) rigName->setFixedWidth(100);
 #endif
 
     loadSettings(); // Look for saved preferences
@@ -349,7 +412,11 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 
     setTuningSteps(); // TODO: Combine into preferences
 
+#ifndef WFVIEW_IOS
     changeFullScreenMode(prefs.useFullScreen);
+#else
+    onFullscreen = prefs.useFullScreen;
+#endif
     useSystemTheme(prefs.useSystemTheme);
 
     // Don't update prefs until system theme is loaded.
@@ -1048,21 +1115,33 @@ void wfmain::setupMainUI()
 
     rigStatus = new QLabel(this);
     ui->statusBar->addPermanentWidget(rigStatus);
+    rigStatus->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+    rigStatus->setFixedWidth(220);
     ui->statusBar->showMessage("Connecting to rig...", 1000);
 
     pttLed = new QLedLabel(this);
-    ui->statusBar->addPermanentWidget(pttLed);
     pttLed->setState(QLedLabel::State::StateOk);
     pttLed->setToolTip("Receiving");
 
     connectedLed = new QLedLabel(this);
-    ui->statusBar->addPermanentWidget(connectedLed);
-
     rigName = new QLabel(this);
     rigName->setAlignment(Qt::AlignRight);
-    ui->statusBar->addPermanentWidget(rigName);
     rigName->setText("NONE");
-    rigName->setFixedWidth(60);
+    rigName->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+    rigName->setFixedWidth(100);
+
+    iosRigStatusWidget = new QWidget(this);
+    iosRigStatusLayout = new QHBoxLayout(iosRigStatusWidget);
+    iosRigStatusLayout->setContentsMargins(0, 0, 0, 0);
+    iosRigStatusLayout->setSpacing(6);
+    iosRigStatusLayout->addWidget(pttLed);
+    iosRigStatusLayout->addWidget(connectedLed);
+    iosRigStatusLayout->addWidget(rigName);
+    iosRigStatusLayout->addStretch(1);
+    iosRigStatusWidget->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+    iosRigStatusWidget->setFixedWidth(190);
+    ui->statusBar->addPermanentWidget(iosRigStatusWidget);
+    ui->statusBar->setSizeGripEnabled(false);
 
     freqt f;
     f.MHzDouble = 0.0;
@@ -2105,9 +2184,12 @@ void wfmain::loadSettings()
     prefs.stylesheetPath = settings->value("StylesheetPath", defPrefs.stylesheetPath).toString();
     //ui->splitter->restoreState(settings->value("splitter").toByteArray());
 
+#ifdef WFVIEW_IOS
+#else
     restoreGeometry(settings->value("windowGeometry").toByteArray());
     restoreState(settings->value("windowState").toByteArray());
     setWindowState(Qt::WindowActive); // Works around QT bug to returns window+keyboard focus.
+#endif
 
     if (bandbtns != Q_NULLPTR)
         bandbtns->setGeometry(settings->value("BandWindowGeometry").toByteArray());
@@ -4619,8 +4701,11 @@ void wfmain::on_freqDial_valueChanged(int value)
 
 #ifdef WFVIEW_IOS
     // iOS: the tuning step is chosen by tapping a frequency digit (stepSize),
-    // not the desktop step combo, so honour that for dial tuning.
-    unsigned int knobStep = (unsigned int)receivers[currentReceiver]->getStepSize();
+    // not the desktop step combo. Fine mode temporarily forces 1 Hz without
+    // discarding the digit-selected step used when Fine is switched off.
+    unsigned int knobStep = iosFineTuning
+                                ? 1U
+                                : (unsigned int)receivers[currentReceiver]->getStepSize();
 #else
     unsigned int knobStep = tsKnobHz;
 #endif
@@ -7407,6 +7492,10 @@ void wfmain::enableControls(bool en)
     ui->freqDial->setEnabled(en);
     ui->tuningStepCombo->setEnabled(en);
     ui->tuneLockChk->setEnabled(en);
+#ifdef WFVIEW_IOS
+    if (iosLockButton != nullptr)
+        iosLockButton->setEnabled(en);
+#endif
     ui->ritEnableChk->setEnabled(en);
     ui->ritTuneDial->setEnabled(en);
     ui->afGainSlider->setEnabled(en);

@@ -18,7 +18,10 @@ This fork includes an iPad-oriented Qt Widgets interface with the following chan
 - The second meter is assigned to SWR on iPad and retains the last measured SWR value after transmission ends.
 - Tapping a frequency digit selects that digit as the tuning step without changing the current frequency.
 - The enlarged frequency dial is labelled in Japanese and uses a pale-orange finish.
+- `Fine` switches the frequency dial to 1 Hz steps; `Lock` and `RIT` are arranged beside it for direct access.
+- The main screen includes separate S and SWR meters, with the SWR reading held after measurement.
 - Detaching and reattaching the scope preserves the full-screen main-window size on iPad; the scope button labels are shown as `切離し` and `戻す`.
+- Radio-capability-dependent control groups remain hidden until radio detection completes. This prevents their desktop minimum-width hints from expanding the startup window beyond the iPad landscape viewport and clipping the right side.
 
 **For screenshots, documentation, User FAQ, Programmer FAQ, and more, please [see the project's website, wfview.org](https://wfview.org/).**
 

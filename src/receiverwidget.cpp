@@ -2517,6 +2517,7 @@ void receiverWidget::setFrequencyLocally(freqt f, uchar vfo) {
     {
         this->unselectedFreq=f;
     }
+
 }
 
 
@@ -2850,3 +2851,4 @@ void receiverWidget::updateInfo()
         queue->add(priorityImmediate,t.modeFunc,false,t.receiver);
     }
 }
+
