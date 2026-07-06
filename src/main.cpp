@@ -25,6 +25,10 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSaveFile>
+#ifdef WFVIEW_IOS
+#include <QPermissions>
+#include <QEventLoop>
+#endif
 
 #include "logcategories.h"
 
@@ -127,6 +131,20 @@ int main(int argc, char *argv[])
     // Configure the iOS audio session to allow a Bluetooth (HFP) headset to be
     // used for both microphone input and audio output.
     configureIosAudioSession();
+
+    // Qt audio input can start successfully but deliver silence until iOS
+    // recording permission has been resolved. Complete the permission request
+    // before wfmain creates the LAN transmit-audio input path.
+    QMicrophonePermission microphonePermission;
+    if (a.checkPermission(microphonePermission) == Qt::PermissionStatus::Undetermined)
+    {
+        QEventLoop permissionLoop;
+        a.requestPermission(microphonePermission, &a,
+                            [&permissionLoop](const QPermission &) {
+            permissionLoop.quit();
+        });
+        permissionLoop.exec();
+    }
 #endif
 #endif
 

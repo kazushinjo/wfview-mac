@@ -23,6 +23,9 @@ This fork includes an iPad-oriented Qt Widgets interface with the following chan
 - Detaching and reattaching the scope preserves the full-screen main-window size on iPad; the scope button labels are shown as `切離し` and `戻す`.
 - Radio-capability-dependent control groups remain hidden until radio detection completes. This prevents their desktop minimum-width hints from expanding the startup window beyond the iPad landscape viewport and clipping the right side.
 
+Implementation notes for carrying the iOS fixes into `wfview-iphone` are in
+[ios/WFVIEW_IPHONE_PORTING.md](ios/WFVIEW_IPHONE_PORTING.md).
+
 **For screenshots, documentation, User FAQ, Programmer FAQ, and more, please [see the project's website, wfview.org](https://wfview.org/).**
 
 Links for Users: 

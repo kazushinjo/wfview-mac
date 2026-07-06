@@ -505,6 +505,8 @@ private:
     class QLabel *iosWfLevelLabel = nullptr;
     class QPushButton *iosLockButton = nullptr;
     bool iosFineTuning = false; // Force the frequency dial to 1 Hz steps.
+    double iosPendingSWR = 0.0;
+    bool iosPendingSWRValid = false;
     // Add a "← 戻る" back button to a full-screen popup so it can be dismissed.
     void addIosBackButton(QWidget *w);
 #endif
@@ -516,6 +518,9 @@ private:
     QTimer logCheckingTimer;
     int logCheckingOldPosition = 0;
     QTimer ATUCheckTimer;
+    bool atuStatusCheckPending = false;
+    bool atuTuneCyclePending = false;
+    int atuTuneStatusChecks = 0;
     QTimer ConnectionTimer;
 
     QCustomPlot *plot; // line plot

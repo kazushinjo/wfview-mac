@@ -1089,6 +1089,14 @@ void wfmain::receiveNetworkAudioLevels(networkAudioLevels l)
 
 void wfmain::setupMainUI()
 {
+    ATUCheckTimer.setSingleShot(true);
+    connect(&ATUCheckTimer, &QTimer::timeout, this, [this]() {
+        atuStatusCheckPending = true;
+        if (atuTuneCyclePending)
+            ++atuTuneStatusChecks;
+        queue->add(priorityHighest, funcTunerStatus);
+    });
+
     // Set scroll wheel response (tick interval)
     // and set arrow key response (single step)
     ui->rfGainSlider->setTickInterval(100);
@@ -4527,6 +4535,19 @@ void wfmain::receivePTTstatus(bool pttOn)
     }
     else if (!pttOn && amTransmitting)
     {
+#ifdef WFVIEW_IOS
+        // Show only the final SWR sample after transmission/tuning has ended.
+        if (iosPendingSWRValid)
+        {
+            meter *meters[] = { ui->meter2Widget, ui->meter3Widget };
+            for (meter *m : meters)
+            {
+                if (m->getMeterType() == meterSWR)
+                    m->setLevel(iosPendingSWR);
+            }
+            iosPendingSWRValid = false;
+        }
+#endif
         pttLed->setState(QLedLabel::State::StateOk);
         pttLed->setToolTip("Receiving");
         changePrimaryMeter(false);
@@ -4804,7 +4825,9 @@ void wfmain::on_tuneNowBtn_clicked()
 
     queue->addUnique(priorityImmediate,queueItem(funcTunerStatus,QVariant::fromValue<uchar>(2U)));
     showStatusBarText("Starting ATU tuning cycle...");
-    ATUCheckTimer.setSingleShot(true);
+    atuStatusCheckPending = false;
+    atuTuneCyclePending = true;
+    atuTuneStatusChecks = 0;
     ATUCheckTimer.start(5000);
 }
 
@@ -4812,7 +4835,9 @@ void wfmain::on_tuneEnableChk_clicked(bool checked)
 {
     queue->addUnique(priorityImmediate,queueItem(funcTunerStatus,QVariant::fromValue<uchar>(checked)));
     showStatusBarText(QString("Turning %0 ATU").arg(checked?"on":"off"));
-    ATUCheckTimer.setSingleShot(true);
+    atuStatusCheckPending = false;
+    atuTuneCyclePending = false;
+    atuTuneStatusChecks = 0;
     ATUCheckTimer.start(5000);
 }
 
@@ -4927,25 +4952,40 @@ void wfmain::receiveATUStatus(quint8 atustatus)
             ui->tuneEnableChk->blockSignals(true);
             ui->tuneEnableChk->setChecked(false);
             ui->tuneEnableChk->blockSignals(false);
-            if(ATUCheckTimer.isActive())
-                showStatusBarText("ATU not enabled.");
+            if(atuStatusCheckPending) {
+                atuStatusCheckPending = false;
+                if (atuTuneCyclePending && atuTuneStatusChecks < 4) {
+                    ATUCheckTimer.start(5000);
+                } else {
+                    showStatusBarText(atuTuneCyclePending
+                                      ? QStringLiteral("ATU調整失敗（無線機のATUがOFF）")
+                                      : QStringLiteral("ATU not enabled."));
+                    atuTuneCyclePending = false;
+                    atuTuneStatusChecks = 0;
+                }
+            }
             break;
         case 0x01:
             // ATU enabled
             ui->tuneEnableChk->blockSignals(true);
             ui->tuneEnableChk->setChecked(true);
             ui->tuneEnableChk->blockSignals(false);
-            if(ATUCheckTimer.isActive())
+            if(atuStatusCheckPending || atuTuneCyclePending) {
                 showStatusBarText("ATU enabled.");
+                atuStatusCheckPending = false;
+                atuTuneCyclePending = false;
+                atuTuneStatusChecks = 0;
+                ATUCheckTimer.stop();
+            }
             break;
         case 0x02:
             // ATU tuning in-progress.
-            // Add command queue to check again and update status bar
+            // Continue checking internally. Do not leave a "tuning" message
+            // visible after the radio has already returned to receive.
             // qInfo(logSystem()) << "Received ATU status update that *tuning* is taking place";
-            showStatusBarText("ATU is Tuning...");
-            ATUCheckTimer.stop();
+            atuStatusCheckPending = false;
+            atuTuneCyclePending = true;
             ATUCheckTimer.start(5000);
-            queue->add(priorityHighest,funcTunerStatus);
             break;
         default:
             qInfo(logSystem()) << "Did not understand ATU status: " << (unsigned int) atustatus;
@@ -5252,6 +5292,27 @@ void wfmain::processModLevel(inputTypes source, quint8 level)
 
 void wfmain::receiveModInput(rigInput input, quint8 data)
 {
+#ifdef WFVIEW_IOS
+    if (prefs.enableLAN && rigCaps && !rigCaps->hasLan &&
+        (data == 0 || data == 1) && input.type != inputUSB)
+    {
+        for (const rigInput &candidate : rigCaps->inputs)
+        {
+            if (candidate.type == inputUSB)
+            {
+                const funcs sourceCommand = data == 0 ? funcDATAOffMod : funcDATA1Mod;
+                prefs.inputSource[data] = candidate;
+                queue->add(priorityImmediate, queueItem(sourceCommand,
+                           QVariant::fromValue<rigInput>(candidate), false, currentReceiver));
+                if (rigCaps->commands.contains(funcUSBModLevel))
+                    queue->add(priorityImmediate, queueItem(funcUSBModLevel,
+                               QVariant::fromValue<ushort>(204), false, currentReceiver));
+                return;
+            }
+        }
+    }
+#endif
+
     // This will ONLY fire if the input type is different to the current one
     if (currentModSrc[data].type != input.type && receivers.size())
     {
@@ -5307,10 +5368,17 @@ void wfmain::receiveTuningStep(quint8 step)
 void wfmain::receiveMeter(meter_t inMeter, double level)
 {
 #ifdef WFVIEW_IOS
-    // SWR is meaningful while transmitting. Ignore idle readings so the
-    // display keeps the most recent measured value after transmission ends.
-    if (inMeter == meterSWR && !amTransmitting)
+    if (inMeter == meterSWR)
+    {
+        // Keep collecting samples while transmitting, but update the meter
+        // only once with the final sample when receivePTTstatus() returns to RX.
+        if (amTransmitting)
+        {
+            iosPendingSWR = level;
+            iosPendingSWRValid = true;
+        }
         return;
+    }
 #endif
 
     switch(inMeter)
@@ -7090,6 +7158,45 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
         qDebug(logSystem()) << "Rig ID received into wfmain: hasSpectrum: " << rigCaps->hasSpectrum;
 
         configureVFOs(); // Now we have a rig connection, need to configure the VFOs
+
+#ifdef WFVIEW_IOS
+        // Remote audio for radios without a native LAN modulation input (for
+        // example IC-7300 via wfserver) reaches the radio through USB. Select
+        // the matching modulation source instead of leaving it on MIC.
+        if (prefs.enableLAN)
+        {
+            rigInput preferredInput;
+            const inputTypes requiredType = rigCaps->hasLan ? inputLAN : inputUSB;
+            for (const rigInput &input : rigCaps->inputs)
+            {
+                if (input.type == requiredType)
+                {
+                    preferredInput = input;
+                    break;
+                }
+            }
+
+            if (preferredInput.type == inputLAN || preferredInput.type == inputUSB)
+            {
+                prefs.inputSource[0] = preferredInput;
+                prefs.inputSource[1] = preferredInput;
+                if (rigCaps->commands.contains(funcDATAOffMod))
+                    queue->add(priorityImmediate, queueItem(funcDATAOffMod,
+                               QVariant::fromValue<rigInput>(preferredInput), false, currentReceiver));
+                if (rigCaps->commands.contains(funcDATA1Mod))
+                    queue->add(priorityImmediate, queueItem(funcDATA1Mod,
+                               QVariant::fromValue<rigInput>(preferredInput), false, currentReceiver));
+
+                // Ensure the selected remote modulation input is not muted.
+                const funcs levelCommand = requiredType == inputLAN
+                                               ? funcLANModLevel
+                                               : funcUSBModLevel;
+                if (rigCaps->commands.contains(levelCommand))
+                    queue->add(priorityImmediate, queueItem(levelCommand,
+                               QVariant::fromValue<ushort>(204), false, currentReceiver));
+            }
+        }
+#endif
 
         rigName->setText(rigCaps->modelName);
         if (serverConfig.enabled) {
