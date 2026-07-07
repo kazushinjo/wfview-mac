@@ -500,9 +500,9 @@ private:
     bool debugMode;
     QString version;
     QSettings *settings=Q_NULLPTR;
-#ifdef WFVIEW_IOS
     class QSlider *iosWfLevelSlider = nullptr; // waterfall colour floor, in RF/AF slider group
     class QLabel *iosWfLevelLabel = nullptr;
+#ifdef WFVIEW_IOS
     class QPushButton *iosLockButton = nullptr;
     bool iosFineTuning = false; // Force the frequency dial to 1 Hz steps.
     double iosPendingSWR = 0.0;

@@ -5,12 +5,13 @@
 #include "rigidentities.h"
 #include "logcategories.h"
 
-#ifdef WFVIEW_IOS
-#include <QVBoxLayout>
-#include <QBoxLayout>
-#include <QHBoxLayout>
 #include <QLabel>
 #include <QSlider>
+#include <QVBoxLayout>
+
+#ifdef WFVIEW_IOS
+#include <QBoxLayout>
+#include <QHBoxLayout>
 #include <QPushButton>
 #include <QCheckBox>
 #include <QApplication>
@@ -329,7 +330,6 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 
     setDefaultColorPresets();
 
-#ifdef WFVIEW_IOS
     // Raise the level sliders: remove the expanding spacer above them so the
     // tall sliders don't overlap the "Other Controls" label below.
     ui->controlsLayout->removeItem(ui->verticalSpacer);
@@ -359,11 +359,14 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
             prefs.mainWfFloor = val;
             prefs.subWfFloor = val;
             prefs.settingsChanged = true;
-            if(!receivers.isEmpty())
-                receivers.first()->setWfRange(val, prefs.mainPlotCeiling);
+            for(int i = 0; i < receivers.size(); ++i) {
+                const int ceiling = (i == 0) ? prefs.mainPlotCeiling : prefs.subPlotCeiling;
+                receivers[i]->setWfRange(val, ceiling);
+            }
             // iOS has no Save button; persist immediately so the value is
             // applied on the next launch. Must match the "Interface" group
             // that saveSettings()/loadSettings() use, or it won't be read back.
+#ifdef WFVIEW_IOS
             if(settings){
                 settings->beginGroup("Interface");
                 settings->setValue("MainWfFloor", val);
@@ -371,8 +374,10 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
                 settings->endGroup();
                 settings->sync();
             }
+#endif
         });
     }
+#ifdef WFVIEW_IOS
     // iOS force-quit (swipe-up) can drop CFPreferences writes that were only
     // sync()'d mid-session. Flush settings to disk whenever the app leaves the
     // foreground, the OS-sanctioned moment before suspension/termination.
@@ -393,6 +398,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     // Keep the second meter, directly below the S meter, assigned to SWR on
     // iPad even when an older saved configuration has it disabled.
     prefs.meter2Type = meterSWR;
+#endif
 
     // The WF-level slider was built before loadSettings(); sync it to the saved
     // value now (blocking signals so it doesn't overwrite prefs).
@@ -402,7 +408,6 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
         iosWfLevelSlider->setValue(prefs.mainWfFloor);
         iosWfLevelSlider->blockSignals(false);
     }
-#endif
     logWindow->ingestSettings(prefs);
 
     setManufacturer(prefs.manufacturer);
