@@ -53,8 +53,10 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     setWindowTitle(QString("wfview"));
 
     ui->monitorLabel->setText("Mon");
-#ifdef WFVIEW_IOS
+    // The tuning step is chosen from the clicked frequency digit. Keep this
+    // combo populated for internal state, but remove it from the visible UI.
     ui->tuningStepCombo->hide();
+#ifdef WFVIEW_IOS
     // These groups depend on the connected radio's capabilities.  Keeping the
     // Designer defaults visible before capability discovery gives the main
     // window a minimum width larger than an iPad landscape viewport.
@@ -7424,12 +7426,8 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
 
         ui->tuningStepCombo->setCurrentIndex(2);
         ui->tuningStepCombo->blockSignals(false);
-#ifdef WFVIEW_IOS
-        // iOS: the tuning step is chosen by tapping a digit of the frequency
-        // display, which sets stepSize directly. Hide the desktop step combo
-        // so it can't override that choice.
+        // Keep hidden after the model is rebuilt for the current rig.
         ui->tuningStepCombo->hide();
-#endif
 
         setupui->updateModSourceList(0, rigCaps->inputs);
 
