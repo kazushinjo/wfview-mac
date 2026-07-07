@@ -160,6 +160,7 @@ signals:
     void waterfallTime(double time);
     void sendScopeImage(uchar receiver);
     void sendTrack(int f);
+    void stepSizeSelected(uchar receiver, quint64 hz);
 
 private slots:
     void detachScope(bool state);
@@ -204,6 +205,8 @@ private:
     QList <freqCtrl*> freqDisplay;
     QSpacerItem* displayLSpacer;
     QPushButton* vfoSelectButton;
+    QPushButton* freqUpButton;
+    QPushButton* freqDownButton;
     QSpacerItem* displayCSpacer;
     QPushButton* vfoSwapButton;
     QPushButton* vfoEqualsButton;

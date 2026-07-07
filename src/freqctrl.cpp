@@ -539,29 +539,13 @@ void freqCtrl::mousePressEvent(QMouseEvent *event)
         {
             if (inRect(m_DigitInfo[i].dQRect, pt)) // if in i'th digit
             {
-#ifdef WFVIEW_IOS
-                // On iOS, tapping a digit selects it as the tuning step (used
-                // by the dial and external up/down controls) and highlights it.
-                // Selecting a step must not change the current frequency.
-                {
-                    qint64 w = m_DigitInfo[i].weight;
-                    setActiveDigit(i);
-                    updateCtrl(true);
-                    emit stepSizeSelected(w);
-                }
-#else
-                if (m_LRMouseFreqSel)
-                {
-                    incFreq();
-                }
-                else
-                {
-                    if (pt.y() < m_DigitInfo[i].dQRect.bottom() / 2) // top half?
-                        incFreq();
-                    else
-                        decFreq();                                   // bottom half
-                }
-#endif
+                // Tapping/clicking a digit selects it as the tuning step used
+                // by the dial and external up/down controls. Selecting a step
+                // must not change the current frequency.
+                qint64 w = m_DigitInfo[i].weight;
+                setActiveDigit(i);
+                updateCtrl(true);
+                emit stepSizeSelected(w);
             }
         }
     }

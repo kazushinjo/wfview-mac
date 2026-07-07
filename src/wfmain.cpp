@@ -1419,6 +1419,37 @@ void wfmain::configureVFOs()
         connect(receiver,SIGNAL(showStatusBarText(QString)),this,SLOT(showStatusBarText(QString)));
         connect(receiver,SIGNAL(sendScopeImage(uchar)),this,SLOT(receiveScopeImage(uchar)));
         receivers.append(receiver);
+        connect(receiver, &receiverWidget::stepSizeSelected, this, [=](uchar selectedReceiver, quint64 hz) {
+            if (hz == 0)
+                return;
+
+            tsWfScrollHz = static_cast<unsigned int>(hz);
+            tsKnobHz = static_cast<unsigned int>(hz);
+            tsWfScroll = static_cast<float>(hz) / 1000000.0f;
+            tsKnobMHz = static_cast<float>(hz) / 1000000.0f;
+
+            for (const auto& rx: receivers)
+                rx->setStepSize(hz);
+
+            int stepIndex = -1;
+            for (int step = 0; step < ui->tuningStepCombo->count(); ++step)
+            {
+                if (ui->tuningStepCombo->itemData(step).toULongLong() == hz)
+                {
+                    stepIndex = step;
+                    break;
+                }
+            }
+            if (stepIndex >= 0 && ui->tuningStepCombo->currentIndex() != stepIndex)
+            {
+                ui->tuningStepCombo->blockSignals(true);
+                ui->tuningStepCombo->setCurrentIndex(stepIndex);
+                ui->tuningStepCombo->blockSignals(false);
+            }
+
+            qDebug(logGui()) << "Selected frequency digit tuning step" << hz
+                             << "Hz on receiver" << selectedReceiver;
+        });
 
         // Currently tracking is disabled
         //if (receivers.size() > 1)

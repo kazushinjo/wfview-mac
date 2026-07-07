@@ -49,6 +49,26 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
         selectedVFO = uchar(en);
     });
 
+    freqUpButton = new QPushButton(tr("▲"), this);
+    freqUpButton->setHidden(true);
+    freqUpButton->setFocusPolicy(Qt::StrongFocus);
+    freqUpButton->setAccessibleName(tr("Frequency Up"));
+    freqUpButton->setToolTip(tr("Increase frequency by the selected digit step"));
+    connect(freqUpButton, &QPushButton::clicked, this, [=]() {
+        if (selectedVFO < freqDisplay.size())
+            freqDisplay[selectedVFO]->stepFreqUp();
+    });
+
+    freqDownButton = new QPushButton(tr("▼"), this);
+    freqDownButton->setHidden(true);
+    freqDownButton->setFocusPolicy(Qt::StrongFocus);
+    freqDownButton->setAccessibleName(tr("Frequency Down"));
+    freqDownButton->setToolTip(tr("Decrease frequency by the selected digit step"));
+    connect(freqDownButton, &QPushButton::clicked, this, [=]() {
+        if (selectedVFO < freqDisplay.size())
+            freqDisplay[selectedVFO]->stepFreqDown();
+    });
+
     vfoSwapButton=new QPushButton(tr("A<>B"),this);
     vfoSwapButton->setHidden(true);
     vfoSwapButton->setFocusPolicy(Qt::StrongFocus);
@@ -115,7 +135,11 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
             // Add the VFO buttons here.
             if (numVFO > 1) {
                 vfoSelectButton->setHidden(false);
+                freqUpButton->setHidden(false);
+                freqDownButton->setHidden(false);
                 displayLayout->addWidget(vfoSelectButton);
+                displayLayout->addWidget(freqUpButton);
+                displayLayout->addWidget(freqDownButton);
 
                 displayLSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
                 displayLayout->addSpacerItem(displayLSpacer);
@@ -161,10 +185,13 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
         connect(fr, &freqCtrl::newFrequency, this, [=](const qint64 &freq) {
             this->newFrequency(freq,i);
         });
-        // iOS: tapping a digit of the frequency display chooses the tuning
-        // step; update stepSize so spectrum tap-tune / scroll use it.
+        // Clicking/tapping a frequency digit chooses the tuning step; update
+        // stepSize so spectrum tap-tune / scroll use it.
         connect(fr, &freqCtrl::stepSizeSelected, this, [=](qint64 hz) {
-            if (hz > 0) stepSize = (quint64)hz;
+            if (hz > 0) {
+                stepSize = (quint64)hz;
+                emit stepSizeSelected(receiver, stepSize);
+            }
         });
 
         freqDisplay.append(fr);
