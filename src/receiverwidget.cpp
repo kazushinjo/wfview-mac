@@ -54,6 +54,9 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     freqUpButton->setFocusPolicy(Qt::StrongFocus);
     freqUpButton->setAccessibleName(tr("Frequency Up"));
     freqUpButton->setToolTip(tr("Increase frequency by the selected digit step"));
+    freqUpButton->setAutoRepeat(true);
+    freqUpButton->setAutoRepeatDelay(350);
+    freqUpButton->setAutoRepeatInterval(120);
     connect(freqUpButton, &QPushButton::clicked, this, [=]() {
         if (selectedVFO < freqDisplay.size())
             freqDisplay[selectedVFO]->stepFreqUp();
@@ -64,6 +67,9 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     freqDownButton->setFocusPolicy(Qt::StrongFocus);
     freqDownButton->setAccessibleName(tr("Frequency Down"));
     freqDownButton->setToolTip(tr("Decrease frequency by the selected digit step"));
+    freqDownButton->setAutoRepeat(true);
+    freqDownButton->setAutoRepeatDelay(350);
+    freqDownButton->setAutoRepeatInterval(120);
     connect(freqDownButton, &QPushButton::clicked, this, [=]() {
         if (selectedVFO < freqDisplay.size())
             freqDisplay[selectedVFO]->stepFreqDown();
