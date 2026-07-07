@@ -144,6 +144,9 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     for (QPushButton *button : roundedControlButtons)
         button->setStyleSheet(button->styleSheet()
                               + QStringLiteral("QPushButton { border-radius: 10px; }"));
+    ui->transmitBtn->setStyleSheet(QStringLiteral(
+        "QPushButton { background-color: #c8e6c9; color: #202124; "
+        "font-weight: bold; border-radius: 10px; padding: 4px 10px; }"));
 
     // Accessibility: the operating buttons are NoFocus in the .ui so the tuning
     // controls keep keyboard focus. That leaves keyboard-only and VoiceOver
@@ -4329,7 +4332,7 @@ static QString wfview_iosTouchStyleSheet()
         " { border-radius: 10px; padding: 4px 10px; }"
         // Transmit button: pale-green background at all times (crimson text is
         // applied dynamically while transmitting).
-        "QPushButton#transmitBtn { background-color: #81c784; color: white; font-weight: bold; border-radius: 10px; padding: 4px 10px; }"
+        "QPushButton#transmitBtn { background-color: #c8e6c9; color: #202124; font-weight: bold; border-radius: 10px; padding: 4px 10px; }"
     );
 }
 #endif
@@ -4605,16 +4608,14 @@ void wfmain::changeTxBtn()
     if(amTransmitting)
     {
         ui->transmitBtn->setText("送信中");
-#ifdef WFVIEW_IOS
-        // While transmitting: crimson bold text on the green button.
-        ui->transmitBtn->setStyleSheet("color: crimson; font-weight: bold;");
-#endif
+        ui->transmitBtn->setStyleSheet(QStringLiteral(
+            "QPushButton { background-color: #c8e6c9; color: crimson; "
+            "font-weight: bold; border-radius: 10px; padding: 4px 10px; }"));
     } else {
         ui->transmitBtn->setText("送信");
-#ifdef WFVIEW_IOS
-        // Receiving: revert to the pale-green background style (set globally).
-        ui->transmitBtn->setStyleSheet("");
-#endif
+        ui->transmitBtn->setStyleSheet(QStringLiteral(
+            "QPushButton { background-color: #c8e6c9; color: #202124; "
+            "font-weight: bold; border-radius: 10px; padding: 4px 10px; }"));
     }
 }
 
