@@ -138,8 +138,8 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
                 freqUpButton->setHidden(false);
                 freqDownButton->setHidden(false);
                 displayLayout->addWidget(vfoSelectButton);
-                displayLayout->addWidget(freqUpButton);
                 displayLayout->addWidget(freqDownButton);
+                displayLayout->addWidget(freqUpButton);
 
                 displayLSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
                 displayLayout->addSpacerItem(displayLSpacer);

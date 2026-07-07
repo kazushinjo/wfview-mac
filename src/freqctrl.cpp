@@ -544,6 +544,7 @@ void freqCtrl::mousePressEvent(QMouseEvent *event)
                 // must not change the current frequency.
                 qint64 w = m_DigitInfo[i].weight;
                 setActiveDigit(i);
+                m_LastEditDigit = i;
                 updateCtrl(true);
                 emit stepSizeSelected(w);
             }
