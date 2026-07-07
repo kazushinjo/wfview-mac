@@ -3,6 +3,7 @@
 #include "keyboard.h"
 #else
 #include <QApplication>
+#include <QTimer>
 #include <QTranslator>
 #endif
 
@@ -361,7 +362,12 @@ int main(int argc, char *argv[])
     // leave Qt's logical width larger than the device viewport.
     w.show();
 #else
-    w.showMaximized();
+    w.show();
+    QTimer::singleShot(0, &w, [&w]() {
+        w.showMaximized();
+        w.raise();
+        w.activateWindow();
+    });
 #endif
 
 #endif

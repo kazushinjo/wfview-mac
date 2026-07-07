@@ -104,7 +104,7 @@ public:
     void setTracking(bool en) { tracking=en; }
     void setRef(int ref);
     void setRefLimits(int lower, int upper);
-    void setFreqLock( bool en) { freqLock = en; }
+    void setFreqLock(bool en);
     void setRoofing(uchar val);
     void setFilterShape(uchar val);
     void setScopeEnabled(bool en) { this->configScopeEnabled->setEnabled(en);};

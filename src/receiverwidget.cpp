@@ -58,7 +58,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     freqUpButton->setAutoRepeatDelay(350);
     freqUpButton->setAutoRepeatInterval(120);
     connect(freqUpButton, &QPushButton::clicked, this, [=]() {
-        if (selectedVFO < freqDisplay.size())
+        if (!freqLock && selectedVFO < freqDisplay.size())
             freqDisplay[selectedVFO]->stepFreqUp();
     });
 
@@ -71,7 +71,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     freqDownButton->setAutoRepeatDelay(350);
     freqDownButton->setAutoRepeatInterval(120);
     connect(freqDownButton, &QPushButton::clicked, this, [=]() {
-        if (selectedVFO < freqDisplay.size())
+        if (!freqLock && selectedVFO < freqDisplay.size())
             freqDisplay[selectedVFO]->stepFreqDown();
     });
 
@@ -2575,6 +2575,15 @@ void receiverWidget::setFrequency(freqt f, uchar vfo)
     {
         this->unselectedFreq=f;
     }
+}
+
+void receiverWidget::setFreqLock(bool en)
+{
+    freqLock = en;
+    if (freqUpButton != Q_NULLPTR)
+        freqUpButton->setEnabled(!freqLock);
+    if (freqDownButton != Q_NULLPTR)
+        freqDownButton->setEnabled(!freqLock);
 }
 
 void receiverWidget::showBandIndicators(bool en)

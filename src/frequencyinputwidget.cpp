@@ -1,6 +1,9 @@
 #include "frequencyinputwidget.h"
 #include "ui_frequencyinputwidget.h"
 
+#include <QPushButton>
+#include <QSizePolicy>
+
 frequencyinputwidget::frequencyinputwidget(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::frequencyinputwidget)
@@ -13,6 +16,7 @@ frequencyinputwidget::frequencyinputwidget(QWidget *parent) :
     rigCaps = queue->getRigCaps();
     connect(queue, SIGNAL(rigCapsUpdated(rigCapabilities*)), this, SLOT(receiveRigCaps(rigCapabilities*)));
 
+    applyCompactSize();
 
 }
 void frequencyinputwidget::receiveRigCaps(rigCapabilities* caps)
@@ -23,6 +27,27 @@ void frequencyinputwidget::receiveRigCaps(rigCapabilities* caps)
 frequencyinputwidget::~frequencyinputwidget()
 {
     delete ui;
+}
+
+void frequencyinputwidget::setGeometry(QByteArray g)
+{
+    restoreGeometry(g);
+    applyCompactSize();
+}
+
+void frequencyinputwidget::applyCompactSize()
+{
+    const QSize compactSize(380, 300);
+    setMinimumSize(340, 260);
+    setMaximumSize(compactSize);
+    resize(compactSize);
+
+    for (QPushButton* btn : ui->groupBox_2->findChildren<QPushButton*>())
+    {
+        btn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        btn->setMinimumSize(44, 30);
+        btn->setMaximumSize(64, 30);
+    }
 }
 
 void frequencyinputwidget::showEvent(QShowEvent *event)

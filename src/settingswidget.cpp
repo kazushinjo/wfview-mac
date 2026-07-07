@@ -2,6 +2,10 @@
 #include "qserialportinfo.h"
 #include "ui_settingswidget.h"
 
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QPushButton>
+
 #define setchk(a,b) quietlyUpdateCheckbox(a,b)
 
 
@@ -10,6 +14,7 @@ settingswidget::settingswidget(QWidget *parent) :
     ui(new Ui::settingswidget)
 {
     ui->setupUi(this);
+    createConnectionProfileControls();
 
 #ifdef WFVIEW_IOS
     ui->settingsList->setMinimumWidth(220);
@@ -49,6 +54,95 @@ settingswidget::settingswidget(QWidget *parent) :
     setupKeyShortcuts();
 }
 
+void settingswidget::createConnectionProfileControls()
+{
+    QLabel *profileLabel = new QLabel(tr("Connection Profile"), ui->groupConnection);
+    connectionProfileCombo = new QComboBox(ui->groupConnection);
+    connectionProfileCombo->setObjectName(QStringLiteral("connectionProfileCombo"));
+    connectionProfileCombo->setEditable(true);
+    connectionProfileCombo->setInsertPolicy(QComboBox::NoInsert);
+    connectionProfileCombo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    connectionProfileCombo->setMinimumContentsLength(12);
+    if (connectionProfileCombo->lineEdit() != Q_NULLPTR)
+        connectionProfileCombo->lineEdit()->setPlaceholderText(tr("Enter profile name"));
+
+    connectionProfileSaveBtn = new QPushButton(tr("Save"), ui->groupConnection);
+    connectionProfileSaveBtn->setObjectName(QStringLiteral("connectionProfileSaveBtn"));
+    connectionProfileDeleteBtn = new QPushButton(tr("Delete"), ui->groupConnection);
+    connectionProfileDeleteBtn->setObjectName(QStringLiteral("connectionProfileDeleteBtn"));
+
+    QHBoxLayout *profileButtons = new QHBoxLayout;
+    profileButtons->setContentsMargins(0, 0, 0, 0);
+    profileButtons->addWidget(connectionProfileSaveBtn);
+    profileButtons->addWidget(connectionProfileDeleteBtn);
+
+    ui->verticalLayout_5->insertWidget(0, profileLabel);
+    ui->verticalLayout_5->insertWidget(1, connectionProfileCombo);
+    ui->verticalLayout_5->insertLayout(2, profileButtons);
+
+    const auto emitSelectedProfile = [this](int index) {
+        if (!updatingUIFromPrefs && index >= 0)
+        {
+            const QString name = connectionProfileCombo->itemText(index).trimmed();
+            if (!name.isEmpty())
+                emit connectionProfileSelected(name);
+        }
+    };
+
+    connect(connectionProfileCombo, QOverload<int>::of(&QComboBox::activated), this, emitSelectedProfile);
+    connect(connectionProfileCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, emitSelectedProfile);
+    connect(connectionProfileCombo, &QComboBox::textActivated, this, [this](const QString& text) {
+        if (!updatingUIFromPrefs)
+        {
+            const int index = connectionProfileCombo->findText(text.trimmed());
+            if (index >= 0)
+                emit connectionProfileSelected(connectionProfileCombo->itemText(index).trimmed());
+        }
+    });
+    connect(connectionProfileSaveBtn, &QPushButton::clicked, this, [this]() {
+        QString name = connectionProfileCombo->currentText().trimmed();
+        if (name.isEmpty())
+        {
+            bool ok = false;
+            name = QInputDialog::getText(this, tr("Save Connection Profile"),
+                                         tr("Profile name:"), QLineEdit::Normal,
+                                         QString(), &ok).trimmed();
+            if (!ok)
+                return;
+        }
+        if (!name.isEmpty())
+            emit connectionProfileSaveRequested(name);
+    });
+    connect(connectionProfileDeleteBtn, &QPushButton::clicked, this, [this]() {
+        const QString name = connectionProfileCombo->currentText();
+        if (!name.isEmpty())
+            emit connectionProfileDeleteRequested(name);
+    });
+}
+
+void settingswidget::setConnectionProfiles(const QStringList& profileNames, const QString& currentProfile)
+{
+    if (connectionProfileCombo == Q_NULLPTR)
+        return;
+
+    updatingUIFromPrefs = true;
+    connectionProfileCombo->clear();
+    connectionProfileCombo->addItems(profileNames);
+
+    int index = currentProfile.isEmpty() ? -1 : connectionProfileCombo->findText(currentProfile);
+    if (index >= 0)
+    {
+        connectionProfileCombo->setCurrentIndex(index);
+    }
+    else
+    {
+        connectionProfileCombo->setCurrentIndex(-1);
+        connectionProfileCombo->setEditText(QString());
+    }
+
+    updatingUIFromPrefs = false;
+}
+
 settingswidget::~settingswidget()
 {
     delete ui;
@@ -62,6 +156,13 @@ settingswidget::~settingswidget()
         Pa_Terminate();
     }
 #endif
+}
+
+QString settingswidget::currentConnectionProfileName() const
+{
+    if (connectionProfileCombo == Q_NULLPTR)
+        return QString();
+    return connectionProfileCombo->currentText().trimmed();
 }
 
 // Startup:
@@ -3389,6 +3490,12 @@ void settingswidget::connectionStatus(bool conn)
     ui->audioSystemCombo->setEnabled(!conn);
     ui->audioSampleRateCombo->setEnabled(prefs->manufacturer==manufKenwood?false:!conn);
     ui->networkConnectionTypeCombo->setEnabled(!conn);
+    if (connectionProfileCombo != Q_NULLPTR)
+        connectionProfileCombo->setEnabled(!conn);
+    if (connectionProfileSaveBtn != Q_NULLPTR)
+        connectionProfileSaveBtn->setEnabled(!conn);
+    if (connectionProfileDeleteBtn != Q_NULLPTR)
+        connectionProfileDeleteBtn->setEnabled(!conn);
 
     ui->txLatencySlider->setEnabled(!conn);
     ui->usernameTxt->setEnabled(!conn);

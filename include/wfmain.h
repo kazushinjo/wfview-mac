@@ -344,6 +344,9 @@ private slots:
 
     void handleExtConnectBtn();
     void handleRevertSettingsBtn();
+    void handleConnectionProfileSelected(QString name);
+    void handleConnectionProfileSaveRequested(QString name);
+    void handleConnectionProfileDeleteRequested(QString name);
 
     void receiveScopeSettings(uchar receiver, int theme, quint16 len, int floor, int ceiling);
     void receiveValue(cacheItem val);
@@ -513,6 +516,12 @@ private:
     void loadSettings();
     void saveSettings();
     void connectSettingsWidget();
+    QStringList connectionProfileNames() const;
+    QString connectionProfileStorageKey(const QString& name) const;
+    void refreshConnectionProfileUi();
+    void saveConnectionProfile(const QString& name);
+    bool loadConnectionProfile(const QString& name);
+    void deleteConnectionProfile(const QString& name);
 
     void initLogging();
     QTimer logCheckingTimer;
@@ -522,6 +531,7 @@ private:
     bool atuTuneCyclePending = false;
     int atuTuneStatusChecks = 0;
     QTimer ConnectionTimer;
+    QString currentConnectionProfile;
 
     QCustomPlot *plot; // line plot
     QCustomPlot *wf; // waterfall image

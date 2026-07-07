@@ -441,6 +441,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     setupui->updateLanPrefs((int)l_all);
     setupui->updateUdpPrefs((int)u_all);
     setupui->updateServerConfigs((int)s_all);
+    refreshConnectionProfileUi();
 
     finputbtns->setAutomaticSidebandSwitching(prefs.automaticSidebandSwitching);
 
@@ -739,7 +740,6 @@ void wfmain::openRig()
     prefs.rxSetup.rxProc = rxProc;
 
     makeRig();
-
 
     if (prefs.enableLAN)
     {
@@ -1254,6 +1254,9 @@ void wfmain::connectSettingsWidget()
     connect(setupui, SIGNAL(connectButtonPressed()), this, SLOT(handleExtConnectBtn()));
     connect(setupui, SIGNAL(saveSettingsButtonPressed()), this, SLOT(on_saveSettingsBtn_clicked()));
     connect(setupui, SIGNAL(revertSettingsButtonPressed()), this, SLOT(handleRevertSettingsBtn()));
+    connect(setupui, SIGNAL(connectionProfileSelected(QString)), this, SLOT(handleConnectionProfileSelected(QString)));
+    connect(setupui, SIGNAL(connectionProfileSaveRequested(QString)), this, SLOT(handleConnectionProfileSaveRequested(QString)));
+    connect(setupui, SIGNAL(connectionProfileDeleteRequested(QString)), this, SLOT(handleConnectionProfileDeleteRequested(QString)));
 }
 
 // NOT Migrated, EHL TODO, carefully remove this function
@@ -2514,6 +2517,10 @@ void wfmain::loadSettings()
 
     settings->endGroup();
 
+    settings->beginGroup("ConnectionProfiles");
+    currentConnectionProfile = settings->value("Current", QString()).toString();
+    settings->endGroup();
+
     settings->beginGroup("Server");
     setupui->acceptServerConfig(&serverConfig);
 
@@ -3620,6 +3627,249 @@ void wfmain::extChangedServerPref(prefServerItem i)
         qWarning(logGui()) << "Did not find matching pref element in wfmain for Server pref item " << (int)i;
         break;
     }
+}
+
+QStringList wfmain::connectionProfileNames() const
+{
+    QStringList names;
+
+    settings->beginGroup("ConnectionProfiles");
+    names = settings->value("Names").toStringList();
+
+    const int count = settings->beginReadArray("Profile");
+    for (int i = 0; i < count; ++i)
+    {
+        settings->setArrayIndex(i);
+        const QString name = settings->value("Name").toString();
+        if (!name.isEmpty() && !names.contains(name))
+            names.append(name);
+    }
+    settings->endArray();
+    settings->endGroup();
+
+    return names;
+}
+
+QString wfmain::connectionProfileStorageKey(const QString& name) const
+{
+    return QString::fromLatin1(name.trimmed().toUtf8().toPercentEncoding());
+}
+
+void wfmain::refreshConnectionProfileUi()
+{
+    setupui->setConnectionProfiles(connectionProfileNames(), currentConnectionProfile);
+}
+
+void wfmain::saveConnectionProfile(const QString& name)
+{
+    const QString profileName = name.trimmed();
+    if (profileName.isEmpty())
+        return;
+
+    QStringList names = connectionProfileNames();
+    int index = names.indexOf(profileName);
+    if (index < 0)
+    {
+        names.append(profileName);
+        index = names.count() - 1;
+    }
+
+    settings->beginGroup("ConnectionProfiles");
+    settings->setValue("Names", names);
+    settings->remove("Profile");
+    settings->beginGroup("Profiles");
+    settings->beginGroup(connectionProfileStorageKey(profileName));
+    settings->setValue("Name", profileName);
+    settings->setValue("Manufacturer", static_cast<int>(prefs.manufacturer));
+    settings->setValue("RigCIVuInt", prefs.radioCIVAddr);
+    settings->setValue("CIVisRadioModel", prefs.CIVisRadioModel);
+    settings->setValue("PTTType", static_cast<int>(prefs.pttType));
+    settings->setValue("polling_ms", prefs.polling_ms);
+    settings->setValue("SerialPortRadio", prefs.serialPortRadio);
+    settings->setValue("SerialPortBaud", prefs.serialPortBaud);
+    settings->setValue("VirtualSerialPort", prefs.virtualSerialPort);
+    settings->setValue("AudioSystem", static_cast<int>(prefs.audioSystem));
+    settings->setValue("EnableLAN", prefs.enableLAN);
+    settings->setValue("IPAddress", udpPrefs.ipAddress);
+    settings->setValue("ControlLANPort", udpPrefs.controlLANPort);
+    settings->setValue("SerialLANPort", udpPrefs.serialLANPort);
+    settings->setValue("AudioLANPort", udpPrefs.audioLANPort);
+    settings->setValue("ScopeLANPort", udpPrefs.scopeLANPort);
+    settings->setValue("AdminLogin", udpPrefs.adminLogin);
+    settings->setValue("Username", udpPrefs.username);
+    settings->setValue("Password", udpPrefs.password);
+    settings->setValue("ConnectionType", static_cast<int>(udpPrefs.connectionType));
+    settings->setValue("HalfDuplex", udpPrefs.halfDuplex);
+    settings->setValue("WaterfallFormat", prefs.waterfallFormat);
+    settings->setValue("AudioRXLatency", prefs.rxSetup.latency);
+    settings->setValue("AudioTXLatency", prefs.txSetup.latency);
+    settings->setValue("AudioRXSampleRate", prefs.rxSetup.sampleRate);
+    settings->setValue("AudioRXCodec", prefs.rxSetup.codec);
+    settings->setValue("AudioTXCodec", prefs.txSetup.codec);
+    settings->setValue("AudioOutput", prefs.rxSetup.name);
+    settings->setValue("AudioInput", prefs.txSetup.name);
+    settings->endGroup();
+    settings->endGroup();
+    settings->setValue("Current", profileName);
+    settings->endGroup();
+    settings->sync();
+
+    currentConnectionProfile = profileName;
+    refreshConnectionProfileUi();
+    showStatusBarText(QString("Saved connection profile: %1").arg(profileName));
+}
+
+bool wfmain::loadConnectionProfile(const QString& name)
+{
+    const QString profileName = name.trimmed();
+    if (profileName.isEmpty())
+        return false;
+
+    bool found = false;
+    settings->beginGroup("ConnectionProfiles");
+    settings->beginGroup("Profiles");
+    settings->beginGroup(connectionProfileStorageKey(profileName));
+    found = settings->value("Name").toString() == profileName;
+    if (found)
+    {
+        prefs.manufacturer = static_cast<manufacturersType_t>(settings->value("Manufacturer", prefs.manufacturer).toInt());
+        prefs.radioCIVAddr = static_cast<quint16>(settings->value("RigCIVuInt", prefs.radioCIVAddr).toInt());
+        prefs.CIVisRadioModel = settings->value("CIVisRadioModel", prefs.CIVisRadioModel).toBool();
+        prefs.pttType = static_cast<pttType_t>(settings->value("PTTType", prefs.pttType).toInt());
+        prefs.polling_ms = settings->value("polling_ms", prefs.polling_ms).toInt();
+        prefs.serialPortRadio = settings->value("SerialPortRadio", prefs.serialPortRadio).toString();
+        prefs.serialPortBaud = static_cast<quint32>(settings->value("SerialPortBaud", prefs.serialPortBaud).toInt());
+        prefs.virtualSerialPort = settings->value("VirtualSerialPort", prefs.virtualSerialPort).toString();
+        prefs.audioSystem = static_cast<audioType>(settings->value("AudioSystem", prefs.audioSystem).toInt());
+        prefs.enableLAN = settings->value("EnableLAN", prefs.enableLAN).toBool();
+        udpPrefs.ipAddress = settings->value("IPAddress", udpPrefs.ipAddress).toString();
+        udpPrefs.controlLANPort = static_cast<quint16>(settings->value("ControlLANPort", udpPrefs.controlLANPort).toInt());
+        udpPrefs.serialLANPort = static_cast<quint16>(settings->value("SerialLANPort", udpPrefs.serialLANPort).toInt());
+        udpPrefs.audioLANPort = static_cast<quint16>(settings->value("AudioLANPort", udpPrefs.audioLANPort).toInt());
+        udpPrefs.scopeLANPort = static_cast<quint16>(settings->value("ScopeLANPort", udpPrefs.scopeLANPort).toInt());
+        udpPrefs.adminLogin = settings->value("AdminLogin", udpPrefs.adminLogin).toBool();
+        udpPrefs.username = settings->value("Username", udpPrefs.username).toString();
+        udpPrefs.password = settings->value("Password", udpPrefs.password).toString();
+        udpPrefs.connectionType = static_cast<connectionType_t>(settings->value("ConnectionType", udpPrefs.connectionType).toInt());
+        udpPrefs.halfDuplex = settings->value("HalfDuplex", udpPrefs.halfDuplex).toBool();
+        prefs.waterfallFormat = settings->value("WaterfallFormat", prefs.waterfallFormat).toInt();
+        prefs.rxSetup.latency = settings->value("AudioRXLatency", prefs.rxSetup.latency).toInt();
+        prefs.txSetup.latency = settings->value("AudioTXLatency", prefs.txSetup.latency).toInt();
+        prefs.rxSetup.sampleRate = settings->value("AudioRXSampleRate", prefs.rxSetup.sampleRate).toInt();
+        prefs.txSetup.sampleRate = prefs.rxSetup.sampleRate;
+        prefs.rxSetup.codec = settings->value("AudioRXCodec", prefs.rxSetup.codec).toInt();
+        prefs.txSetup.codec = settings->value("AudioTXCodec", prefs.txSetup.codec).toInt();
+        prefs.rxSetup.name = settings->value("AudioOutput", prefs.rxSetup.name).toString();
+        prefs.txSetup.name = settings->value("AudioInput", prefs.txSetup.name).toString();
+    }
+    settings->endGroup();
+    settings->endGroup();
+
+    if (!found)
+    {
+        const int count = settings->beginReadArray("Profile");
+        for (int i = 0; i < count; ++i)
+        {
+            settings->setArrayIndex(i);
+            if (settings->value("Name").toString() != profileName)
+                continue;
+
+            prefs.manufacturer = static_cast<manufacturersType_t>(settings->value("Manufacturer", prefs.manufacturer).toInt());
+            prefs.radioCIVAddr = static_cast<quint16>(settings->value("RigCIVuInt", prefs.radioCIVAddr).toInt());
+            prefs.CIVisRadioModel = settings->value("CIVisRadioModel", prefs.CIVisRadioModel).toBool();
+            prefs.pttType = static_cast<pttType_t>(settings->value("PTTType", prefs.pttType).toInt());
+            prefs.polling_ms = settings->value("polling_ms", prefs.polling_ms).toInt();
+            prefs.serialPortRadio = settings->value("SerialPortRadio", prefs.serialPortRadio).toString();
+            prefs.serialPortBaud = static_cast<quint32>(settings->value("SerialPortBaud", prefs.serialPortBaud).toInt());
+            prefs.virtualSerialPort = settings->value("VirtualSerialPort", prefs.virtualSerialPort).toString();
+            prefs.audioSystem = static_cast<audioType>(settings->value("AudioSystem", prefs.audioSystem).toInt());
+            prefs.enableLAN = settings->value("EnableLAN", prefs.enableLAN).toBool();
+            udpPrefs.ipAddress = settings->value("IPAddress", udpPrefs.ipAddress).toString();
+            udpPrefs.controlLANPort = static_cast<quint16>(settings->value("ControlLANPort", udpPrefs.controlLANPort).toInt());
+            udpPrefs.serialLANPort = static_cast<quint16>(settings->value("SerialLANPort", udpPrefs.serialLANPort).toInt());
+            udpPrefs.audioLANPort = static_cast<quint16>(settings->value("AudioLANPort", udpPrefs.audioLANPort).toInt());
+            udpPrefs.scopeLANPort = static_cast<quint16>(settings->value("ScopeLANPort", udpPrefs.scopeLANPort).toInt());
+            udpPrefs.adminLogin = settings->value("AdminLogin", udpPrefs.adminLogin).toBool();
+            udpPrefs.username = settings->value("Username", udpPrefs.username).toString();
+            udpPrefs.password = settings->value("Password", udpPrefs.password).toString();
+            udpPrefs.connectionType = static_cast<connectionType_t>(settings->value("ConnectionType", udpPrefs.connectionType).toInt());
+            udpPrefs.halfDuplex = settings->value("HalfDuplex", udpPrefs.halfDuplex).toBool();
+            prefs.waterfallFormat = settings->value("WaterfallFormat", prefs.waterfallFormat).toInt();
+            prefs.rxSetup.latency = settings->value("AudioRXLatency", prefs.rxSetup.latency).toInt();
+            prefs.txSetup.latency = settings->value("AudioTXLatency", prefs.txSetup.latency).toInt();
+            prefs.rxSetup.sampleRate = settings->value("AudioRXSampleRate", prefs.rxSetup.sampleRate).toInt();
+            prefs.txSetup.sampleRate = prefs.rxSetup.sampleRate;
+            prefs.rxSetup.codec = settings->value("AudioRXCodec", prefs.rxSetup.codec).toInt();
+            prefs.txSetup.codec = settings->value("AudioTXCodec", prefs.txSetup.codec).toInt();
+            prefs.rxSetup.name = settings->value("AudioOutput", prefs.rxSetup.name).toString();
+            prefs.txSetup.name = settings->value("AudioInput", prefs.txSetup.name).toString();
+            found = true;
+            break;
+        }
+        settings->endArray();
+    }
+
+    if (found)
+        settings->setValue("Current", profileName);
+    settings->endGroup();
+
+    if (!found)
+        return false;
+
+    currentConnectionProfile = profileName;
+    settings->sync();
+    prefs.settingsChanged = true;
+    serverConfig.baudRate = prefs.serialPortBaud;
+    setManufacturer(prefs.manufacturer);
+    setupui->updateRaPrefs((int)ra_all);
+    setupui->updateLanPrefs((int)l_all);
+    setupui->updateUdpPrefs((int)u_all);
+    refreshConnectionProfileUi();
+    showStatusBarText(QString("Selected connection profile: %1").arg(profileName));
+    return true;
+}
+
+void wfmain::deleteConnectionProfile(const QString& name)
+{
+    const QString profileName = name.trimmed();
+    if (profileName.isEmpty())
+        return;
+
+    QStringList names = connectionProfileNames();
+    names.removeAll(profileName);
+
+    settings->beginGroup("ConnectionProfiles");
+    settings->setValue("Names", names);
+    settings->remove("Profile");
+    settings->beginGroup("Profiles");
+    settings->remove(connectionProfileStorageKey(profileName));
+    settings->endGroup();
+
+    if (currentConnectionProfile == profileName)
+    {
+        currentConnectionProfile.clear();
+        settings->remove("Current");
+    }
+    settings->endGroup();
+    settings->sync();
+
+    refreshConnectionProfileUi();
+    showStatusBarText(QString("Deleted connection profile: %1").arg(profileName));
+}
+
+void wfmain::handleConnectionProfileSelected(QString name)
+{
+    loadConnectionProfile(name);
+}
+
+void wfmain::handleConnectionProfileSaveRequested(QString name)
+{
+    saveConnectionProfile(name);
+}
+
+void wfmain::handleConnectionProfileDeleteRequested(QString name)
+{
+    deleteConnectionProfile(name);
 }
 
 void wfmain::saveSettings()
@@ -5035,6 +5285,14 @@ void wfmain::receiveATUStatus(quint8 atustatus)
 
 void wfmain::handleExtConnectBtn() {
     // from settings widget
+    if (connStatus == connDisconnected)
+    {
+        const QString profileName = setupui->currentConnectionProfileName();
+        if (!profileName.isEmpty() && connectionProfileNames().contains(profileName))
+        {
+            loadConnectionProfile(profileName);
+        }
+    }
     on_connectBtn_clicked();
 }
 
