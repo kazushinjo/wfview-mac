@@ -32,6 +32,7 @@ qrc_*.o
 *.dmg
 build-ios/
 wfview_plugin_import.cpp
+wfview-mac_plugin_import.cpp
 aqtinstall.log
 
 # iOS: machine-specific symlink (points at Homebrew's eigen3)

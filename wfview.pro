@@ -23,6 +23,7 @@ contains(DEFINES,USB_CONTROLLER){
 }
 
 TARGET = wfview
+macos: TARGET = wfview-mac
 TEMPLATE = app
 
 # VERSION can be overridden on the qmake command line, e.g.:
