@@ -7113,6 +7113,8 @@ void wfmain::receiveScopeSettings(uchar receiver, int theme, quint16 len, int fl
         prefs.subWflength = len;
         prefs.subPlotFloor = floor;
         prefs.subPlotCeiling = ceiling;
+        if (receiver < receivers.size())
+            receivers[receiver]->setWfRange(prefs.subWfFloor, ceiling);
     }
     else
     {
@@ -7120,6 +7122,8 @@ void wfmain::receiveScopeSettings(uchar receiver, int theme, quint16 len, int fl
         prefs.mainWflength = len;
         prefs.mainPlotFloor = floor;
         prefs.mainPlotCeiling = ceiling;
+        if (!receivers.isEmpty())
+            receivers[0]->setWfRange(prefs.mainWfFloor, ceiling);
     }
 }
 

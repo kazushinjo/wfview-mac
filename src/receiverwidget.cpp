@@ -483,7 +483,6 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     });
     connect(configBottom, &QSlider::valueChanged, this, [=](const int &val) {
         this->plotFloor = val;
-        this->wfFloor = val;
         this->setRange(plotFloor,plotCeiling);
         emit updateSettings(receiver,currentTheme,wfLength,plotFloor,plotCeiling);
     });
@@ -491,6 +490,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
         this->plotCeiling = val;
         this->wfCeiling = val;
         this->setRange(plotFloor,plotCeiling);
+        this->setWfRange(wfFloor,wfCeiling);
         emit updateSettings(receiver,currentTheme,wfLength,plotFloor,plotCeiling);
     });
 
@@ -810,20 +810,9 @@ void receiverWidget::setRange(int floor, int ceiling)
 {
     plotFloor = floor;
     plotCeiling = ceiling;
-#ifndef WFVIEW_IOS
-    // On iOS the waterfall floor is independent (set only via setWfRange), so
-    // setRange must not touch wfFloor/wfCeiling or the colour map here — doing so
-    // would reset the user's waterfall level whenever the spectrum range is set.
-    wfFloor = floor;
-    wfCeiling = ceiling;
-#endif
     maxAmp = ceiling;
     if (spectrum != Q_NULLPTR)
         spectrum->yAxis->setRange(QCPRange(floor, ceiling));
-#ifndef WFVIEW_IOS
-    if (colorMap != Q_NULLPTR)
-        colorMap->setDataRange(QCPRange(floor,ceiling));
-#endif
     configBottom->blockSignals(true);
     configBottom->setValue(floor);
     configBottom->blockSignals(false);
