@@ -6,13 +6,13 @@
 #include "logcategories.h"
 
 #include <QLabel>
+#include <QPushButton>
 #include <QSlider>
 #include <QVBoxLayout>
 
 #ifdef WFVIEW_IOS
 #include <QBoxLayout>
 #include <QHBoxLayout>
-#include <QPushButton>
 #include <QCheckBox>
 #include <QApplication>
 #include <QStyle>
@@ -134,15 +134,16 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     });
     iosLockButton->setChecked(ui->tuneLockChk->isChecked());
 
+#endif
+
     const QList<QPushButton *> roundedControlButtons = {
         ui->rigPowerOnBtn, ui->rigPowerOffBtn, ui->transmitBtn,
-        ui->tuneNowBtn, ui->cwButton, ui->rptSetupBtn, ui->memoriesBtn
+        ui->tuneNowBtn, ui->cwButton, ui->rptSetupBtn, ui->splitBtn,
+        ui->memoriesBtn
     };
     for (QPushButton *button : roundedControlButtons)
         button->setStyleSheet(button->styleSheet()
                               + QStringLiteral("QPushButton { border-radius: 10px; }"));
-
-#endif
 
     // Accessibility: the operating buttons are NoFocus in the .ui so the tuning
     // controls keep keyboard focus. That leaves keyboard-only and VoiceOver
@@ -3106,7 +3107,7 @@ void wfmain::extChangedColPref(prefColItem i)
                                         .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
         ui->dualWatchBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
                                         .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-        ui->splitBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
+        ui->splitBtn->setStyleSheet(QString("QPushButton {background-color: %0;border-radius: 10px;} QPushButton:checked {background-color: %1;border: 1px solid;border-radius: 10px;}")
                                         .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
         //    ui->mainSubTrackingBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
         //                                    .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
@@ -5974,7 +5975,7 @@ void wfmain::useColorPreset(colorPrefsType *cp)
                                     .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
     ui->dualWatchBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
                                     .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-    ui->splitBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
+    ui->splitBtn->setStyleSheet(QString("QPushButton {background-color: %0;border-radius: 10px;} QPushButton:checked {background-color: %1;border: 1px solid;border-radius: 10px;}")
                                     .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
     //ui->mainSubTrackingBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
     //                                .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
