@@ -11,6 +11,46 @@
 #include <QTextBrowser>
 #include <QVBoxLayout>
 
+#ifdef Q_OS_MACOS
+#include <CoreAudio/CoreAudio.h>
+
+// Set the macOS system output volume (0.0 - 1.0) of the default output
+// device, so the AF slider can drive the Mac volume together with the
+// application-side audio gain.
+static void setMacSystemVolume(float volume)
+{
+    AudioObjectPropertyAddress devAddr = {
+        kAudioHardwarePropertyDefaultOutputDevice,
+        kAudioObjectPropertyScopeGlobal,
+        kAudioObjectPropertyElementMain };
+    AudioDeviceID device = kAudioObjectUnknown;
+    UInt32 size = sizeof(device);
+    if (AudioObjectGetPropertyData(kAudioObjectSystemObject, &devAddr, 0, Q_NULLPTR,
+                                   &size, &device) != noErr || device == kAudioObjectUnknown)
+        return;
+
+    Float32 vol = qBound(0.0f, volume, 1.0f);
+    AudioObjectPropertyAddress volAddr = {
+        kAudioDevicePropertyVolumeScalar,
+        kAudioDevicePropertyScopeOutput,
+        kAudioObjectPropertyElementMain };
+
+    // Try the main element first; fall back to per-channel (1/2) volume for
+    // devices without a master volume control.
+    if (AudioObjectHasProperty(device, &volAddr))
+    {
+        AudioObjectSetPropertyData(device, &volAddr, 0, Q_NULLPTR, sizeof(vol), &vol);
+        return;
+    }
+    for (UInt32 channel = 1; channel <= 2; channel++)
+    {
+        volAddr.mElement = channel;
+        if (AudioObjectHasProperty(device, &volAddr))
+            AudioObjectSetPropertyData(device, &volAddr, 0, Q_NULLPTR, sizeof(vol), &vol);
+    }
+}
+#endif
+
 #ifdef WFVIEW_IOS
 #include <QBoxLayout>
 #include <QHBoxLayout>
@@ -5093,6 +5133,14 @@ void wfmain::on_afGainSlider_valueChanged(int value)
         prefs.localAFgain = (quint8)(value);
     }
 
+#ifdef Q_OS_MACOS
+    // Drive the Mac system output volume together with the AF slider.
+    // Normalize by the slider's actual range (it is rig-dependent, not
+    // always 0-255) so that slider max equals full system volume.
+    if (ui->afGainSlider->maximum() > 0)
+        setMacSystemVolume((float)value / (float)ui->afGainSlider->maximum());
+#endif
+
     queue->addUnique(priorityImmediate,queueItem(funcAfGain,QVariant::fromValue<ushort>(value),false,currentReceiver));
 }
 
@@ -5453,11 +5501,20 @@ void wfmain::on_helpBtn_clicked()
     {
         helpWindow = new QDialog(this);
         helpWindow->setWindowTitle(tr("ヘルプ - 操作説明書"));
-        helpWindow->resize(780, 660);
+        helpWindow->resize(980, 680);
         QVBoxLayout* helpLayout = new QVBoxLayout(helpWindow);
-        QTextBrowser* browser = new QTextBrowser(helpWindow);
+        QSplitter* split = new QSplitter(helpWindow);
+        helpLayout->addWidget(split);
+
+        QTreeWidget* toc = new QTreeWidget(split);
+        toc->setHeaderLabel(tr("目次"));
+        QTextBrowser* browser = new QTextBrowser(split);
         browser->setOpenExternalLinks(true);
-        helpLayout->addWidget(browser);
+        split->addWidget(toc);
+        split->addWidget(browser);
+        split->setStretchFactor(0, 0);
+        split->setStretchFactor(1, 1);
+        split->setSizes({260, 720});
 
         // The manual is bundled under Contents/Resources/docs; fall back to
         // the source tree location for non-bundle builds.
@@ -5482,6 +5539,46 @@ void wfmain::on_helpBtn_clicked()
             browser->setPlainText(tr("操作説明書 (docs/操作説明書.md) が見つかりませんでした。"));
         else
             browser->setMarkdown(manualText);
+
+        // Build the table of contents from the document headings (levels
+        // 1-3). Each entry remembers its block number for jumping.
+        QTreeWidgetItem* lastItem[3] = {Q_NULLPTR, Q_NULLPTR, Q_NULLPTR};
+        for (QTextBlock block = browser->document()->begin();
+             block.isValid(); block = block.next())
+        {
+            const int level = block.blockFormat().headingLevel();
+            if (level < 1 || level > 3)
+                continue;
+
+            QTreeWidgetItem* parent = Q_NULLPTR;
+            for (int l = level - 2; l >= 0 && parent == Q_NULLPTR; l--)
+                parent = lastItem[l];
+
+            QTreeWidgetItem* item = (parent != Q_NULLPTR)
+                ? new QTreeWidgetItem(parent)
+                : new QTreeWidgetItem(toc);
+            item->setText(0, block.text());
+            item->setData(0, Qt::UserRole, block.blockNumber());
+            lastItem[level - 1] = item;
+            for (int l = level; l < 3; l++)
+                lastItem[l] = Q_NULLPTR;
+        }
+        toc->expandAll();
+
+        connect(toc, &QTreeWidget::itemClicked, browser,
+                [browser](QTreeWidgetItem* item, int) {
+            const QTextBlock block =
+                browser->document()->findBlockByNumber(item->data(0, Qt::UserRole).toInt());
+            if (!block.isValid())
+                return;
+            // Scroll to the end first so that the heading then lands at the
+            // top of the viewport rather than the bottom.
+            QTextCursor end(browser->document());
+            end.movePosition(QTextCursor::End);
+            browser->setTextCursor(end);
+            browser->setTextCursor(QTextCursor(block));
+            browser->ensureCursorVisible();
+        });
     }
     showAndRaiseWidget(helpWindow);
 }
@@ -5793,7 +5890,10 @@ void wfmain::changeModLabel(rigInput input, bool updateLevel)
 
     ui->micGainSlider->setRange(f.minVal,f.maxVal);
 
-    ui->modSliderLbl->setText(input.name);
+    QString modLabelText = input.name;
+    if (modLabelText.compare("USB", Qt::CaseInsensitive) == 0)
+        modLabelText = QStringLiteral("MD"); // 変調度 (USB modulation input)
+    ui->modSliderLbl->setText(modLabelText);
 
     if(updateLevel)
     {
