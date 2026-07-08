@@ -134,6 +134,9 @@ macos{
     rigFiles.files = rigs
     rigFiles.path = Contents/Resources
     QMAKE_BUNDLE_DATA += rigFiles
+    docFiles.files = docs
+    docFiles.path = Contents/Resources
+    QMAKE_BUNDLE_DATA += docFiles
 }
 
 # ---------------------------------------------------------------------------

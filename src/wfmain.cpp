@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QSlider>
+#include <QTextBrowser>
 #include <QVBoxLayout>
 
 #ifdef WFVIEW_IOS
@@ -5445,6 +5446,45 @@ void wfmain::addIosBackButton(QWidget *w)
     }
 }
 #endif
+
+void wfmain::on_helpBtn_clicked()
+{
+    if (helpWindow == Q_NULLPTR)
+    {
+        helpWindow = new QDialog(this);
+        helpWindow->setWindowTitle(tr("ヘルプ - 操作説明書"));
+        helpWindow->resize(780, 660);
+        QVBoxLayout* helpLayout = new QVBoxLayout(helpWindow);
+        QTextBrowser* browser = new QTextBrowser(helpWindow);
+        browser->setOpenExternalLinks(true);
+        helpLayout->addWidget(browser);
+
+        // The manual is bundled under Contents/Resources/docs; fall back to
+        // the source tree location for non-bundle builds.
+        const QStringList candidates = {
+            QCoreApplication::applicationDirPath() + "/../Resources/docs/操作説明書.md",
+            QCoreApplication::applicationDirPath() + "/docs/操作説明書.md",
+            QCoreApplication::applicationDirPath() + "/../../../docs/操作説明書.md",
+        };
+
+        QString manualText;
+        for (const QString& path : candidates)
+        {
+            QFile manual(path);
+            if (manual.open(QIODevice::ReadOnly | QIODevice::Text))
+            {
+                manualText = QString::fromUtf8(manual.readAll());
+                break;
+            }
+        }
+
+        if (manualText.isEmpty())
+            browser->setPlainText(tr("操作説明書 (docs/操作説明書.md) が見つかりませんでした。"));
+        else
+            browser->setMarkdown(manualText);
+    }
+    showAndRaiseWidget(helpWindow);
+}
 
 void wfmain::showAndRaiseWidget(QWidget *w)
 {
