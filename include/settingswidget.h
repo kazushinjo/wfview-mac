@@ -42,6 +42,8 @@ public:
 
 public slots:
     void acceptPreferencesPtr(preferences *pptr);
+    void acceptRigListPtr(QHash<quint16,rigInfo> *rptr);
+    void refreshCivAddrList();
     void acceptUdpPreferencesPtr(udpPreferences *upptr);
     void acceptServerConfig(SERVERCONFIG *serverConfig);
     void acceptColorPresetPtr(colorPrefsType *cp);
@@ -150,7 +152,10 @@ private slots:
 
     void on_manufacturerCombo_currentIndexChanged(int value);
     void on_rigCIVManualAddrChk_clicked(bool checked);
-    void on_rigCIVaddrHexLine_editingFinished();
+    void on_rigCIVaddrCombo_activated(int index);
+    void civAddrEditFinished();
+    void populateCivAddrCombo();
+    void setCivComboToAddress(quint16 addr);
     void on_useCIVasRigIDChk_clicked(bool checked);
     void on_enableRigctldChk_clicked(bool checked);
     void on_rigctldPortTxt_editingFinished();
@@ -269,6 +274,8 @@ private slots:
 
     void on_revCompMeterBtn_clicked(bool checked);
 
+    void commitPendingEdits();
+
     void on_connectBtn_clicked();
 
     void on_saveSettingsBtn_clicked();
@@ -357,6 +364,7 @@ private:
     void populateServerUsers();
 
     preferences *prefs = NULL;
+    QHash<quint16,rigInfo> *rigList = Q_NULLPTR;
     colorPrefsType *colorPreset;
     udpPreferences *udpPrefs = NULL;
     SERVERCONFIG *serverConfig = NULL;

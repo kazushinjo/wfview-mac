@@ -224,6 +224,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 
     finputbtns = new frequencyinputwidget();
     setupui = new settingswidget();
+    setupui->acceptRigListPtr(&rigList);
 
     connect(setupui, SIGNAL(havePortError(errorType)), this, SLOT(receivePortError(errorType)));
 
@@ -3333,6 +3334,9 @@ void wfmain::setManufacturer(manufacturersType_t man)
         }
     }
 
+    // The CI-V/model pulldown in the settings widget mirrors rigList.
+    if (setupui != Q_NULLPTR)
+        setupui->refreshCivAddrList();
 }
 
 void wfmain::extChangedRsPref(prefRsItem i)
@@ -5285,14 +5289,10 @@ void wfmain::receiveATUStatus(quint8 atustatus)
 
 void wfmain::handleExtConnectBtn() {
     // from settings widget
-    if (connStatus == connDisconnected)
-    {
-        const QString profileName = setupui->currentConnectionProfileName();
-        if (!profileName.isEmpty() && connectionProfileNames().contains(profileName))
-        {
-            loadConnectionProfile(profileName);
-        }
-    }
+    // Note: do NOT reload the selected connection profile here. The profile
+    // is already applied when it is selected in the combo box; reloading it
+    // on connect would silently discard any unsaved edits (CI-V address,
+    // IP address, etc.) the user made after selecting the profile.
     on_connectBtn_clicked();
 }
 
