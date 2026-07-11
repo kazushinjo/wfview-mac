@@ -418,7 +418,7 @@ private slots:
 
     void on_tuneNowBtn_clicked();
     void on_tuneEnableChk_clicked(bool checked);
-    bool on_exitBtn_clicked();
+    bool doExit();
     void on_helpBtn_clicked();
     void on_saveSettingsBtn_clicked();
     void debugBtn_clicked();
@@ -501,6 +501,7 @@ private:
     QVector<receiverWidget*>receivers;   // Spectrum Scope items.
     void closeEvent(QCloseEvent *event);
     void resizeEvent(QResizeEvent *event) override;
+    bool eventFilter(QObject *obj, QEvent *event) override;
     QString logFilename;
     bool debugMode;
     QString version;

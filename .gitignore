@@ -31,6 +31,7 @@ qrc_*.o
 *.app/
 *.dmg
 build-ios/
+build-mac/
 wfview_plugin_import.cpp
 wfview-mac_plugin_import.cpp
 aqtinstall.log

@@ -206,6 +206,10 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     for (QPushButton* btn : tabFocusButtons)
         btn->setFocusPolicy(Qt::StrongFocus);
 
+    // Require a double-click on the exit button so it can't be triggered by
+    // an accidental single click; see eventFilter().
+    ui->exitBtn->installEventFilter(this);
+    ui->exitBtn->setToolTip(tr("ダブルクリックで終了"));
 
     logWindow = new loggingWindow(logFile);
     initLogging();
@@ -442,11 +446,11 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 #endif
 
     loadSettings(); // Look for saved preferences
-#ifdef WFVIEW_IOS
-    // Keep the second meter, directly below the S meter, assigned to SWR on
-    // iPad even when an older saved configuration has it disabled.
+    // Keep the second meter (below the S meter) assigned to SWR, and the
+    // third meter (below that) assigned to Tx Mod (mic input level, dBFS),
+    // even when an older saved configuration has them set to something else.
     prefs.meter2Type = meterSWR;
-#endif
+    prefs.meter3Type = meterTxMod;
 
     // The WF-level slider was built before loadSettings(); sync it to the saved
     // value now (blocking signals so it doesn't overwrite prefs).
@@ -504,7 +508,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
             prefs.settingsChanged = false;
             prefs.confirmExit = false;
             QTimer::singleShot(10, this, [&](){
-                on_exitBtn_clicked();
+                doExit();
             });
         });
         connect(fts, &FirstTimeSetup::showSettings, this, [=](const bool networkEnabled) {
@@ -702,9 +706,19 @@ wfmain::~wfmain()
 
 void wfmain::closeEvent(QCloseEvent *event)
 {
-    if (on_exitBtn_clicked())
+    if (doExit())
         event->ignore();
 
+}
+
+bool wfmain::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == ui->exitBtn && event->type() == QEvent::MouseButtonDblClick)
+    {
+        doExit();
+        return true;
+    }
+    return QMainWindow::eventFilter(obj, event);
 }
 
 void wfmain::resizeEvent(QResizeEvent *event)
@@ -1603,7 +1617,7 @@ void wfmain::runShortcut(const QKeySequence k)
     }
     else if (k==(Qt::CTRL | Qt::Key_Q))
     {
-        on_exitBtn_clicked();
+        doExit();
     }
     else if (k==(Qt::CTRL | Qt::Key_D) || k==(Qt::CTRL | Qt::SHIFT | Qt::Key_D))
     {
@@ -2159,12 +2173,8 @@ void wfmain::setDefPrefs()
     defPrefs.confirmSettingsChanged = true;
     defPrefs.confirmMemories = false;
     defPrefs.meter1Type = meterS;
-#ifdef WFVIEW_IOS
     defPrefs.meter2Type = meterSWR;
-#else
-    defPrefs.meter2Type = meterNone;
-#endif
-    defPrefs.meter3Type = meterNone;
+    defPrefs.meter3Type = meterTxMod;
     defPrefs.compMeterReverse = false;
     defPrefs.region = "1";
     defPrefs.showBands = true;
@@ -5184,7 +5194,7 @@ void wfmain::on_tuneEnableChk_clicked(bool checked)
     ATUCheckTimer.start(5000);
 }
 
-bool wfmain::on_exitBtn_clicked()
+bool wfmain::doExit()
 {
     bool ret=false;
     if (prefs.settingsChanged && prefs.confirmSettingsChanged)
