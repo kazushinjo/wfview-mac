@@ -1243,7 +1243,7 @@
           <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
-          <string>Save</string>
+          <string>設定保存</string>
          </property>
         </widget>
        </item>
@@ -1253,7 +1253,7 @@
           <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
-          <string>Status</string>
+          <string>ステータス</string>
          </property>
         </widget>
        </item>
@@ -1283,7 +1283,7 @@
           <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
-          <string>Freq</string>
+          <string>周波数入力</string>
          </property>
         </widget>
        </item>
@@ -1306,7 +1306,7 @@
           <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
-          <string>TX Proc</string>
+          <string>送信音声処理</string>
          </property>
         </widget>
        </item>
@@ -1319,7 +1319,7 @@
           <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
-          <string>RX Proc</string>
+          <string>受信音声処理</string>
          </property>
         </widget>
        </item>
