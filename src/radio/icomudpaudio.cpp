@@ -233,7 +233,28 @@ void icomUdpAudio::dataReceived()
                 if (m_rxMuted)
                     tempAudio.data.fill(0);
 
+                // Icom audio uses even sequence numbers.  UDP has no retry,
+                // so a burst loss used to leave the CoreAudio buffer empty and
+                // produce a loud crackle.  Maintain timing by repeating the
+                // last valid PCM packet while the gap is short.  This is the
+                // least-obtrusive packet-loss concealment available for LPCM.
+                static quint32 lastEmittedSeq = 0;
+                static audioPacket lastEmittedAudio;
+                if (lastEmittedSeq && !lastEmittedAudio.data.isEmpty()
+                    && tempAudio.seq > lastEmittedSeq + 2) {
+                    const quint32 missing = qMin<quint32>(
+                        (tempAudio.seq - lastEmittedSeq) / 2 - 1, 25);
+                    for (quint32 i = 0; i < missing; ++i) {
+                        audioPacket concealed = lastEmittedAudio;
+                        concealed.seq = lastEmittedSeq + 2 * (i + 1);
+                        concealed.time = QTime::currentTime();
+                        emit haveAudioData(concealed);
+                    }
+                }
+
                 emit haveAudioData(tempAudio);
+                lastEmittedSeq = tempAudio.seq;
+                lastEmittedAudio = tempAudio;
                 lastReceived = QTime::currentTime();
             }
             break;
