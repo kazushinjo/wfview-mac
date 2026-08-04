@@ -310,13 +310,9 @@ bool audioConverter::convert(audioPacket audio)
                 if (err) {
                     qInfo(logAudioConverter()) << "Resampler error " << err << " inFrames:" << inFrames << " outFrames:" << outFrames;
                 }
-                // The resampler updates outFrames to the number of frames it
-                // actually produced.  Playing the whole preallocated buffer
-                // appended uninitialised/old samples after each block, which
-                // is heard as a repeating hiss/crackle on 16 kHz Icom audio.
-                samplesF = Eigen::Map<Eigen::VectorXf>(
-                    reinterpret_cast<float*>(scratchOut.data()),
-                    static_cast<int>(outFrames * outFormat.channelCount()));
+                // The resampler updates outFrames to the number of frames it actually produced.
+                // Map only valid samples; mapping the preallocated buffer appends stale data.
+                samplesF = Eigen::Map<Eigen::VectorXf>(reinterpret_cast<float*>(scratchOut.data()), static_cast<int>(outFrames * outFormat.channelCount()));
             }
 
             // ── TX audio processing hook (EQ / compression) ──────────────────
