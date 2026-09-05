@@ -2163,8 +2163,9 @@ void wfmain::setDefPrefs()
     defPrefs.mainWfFloor = 60;
     defPrefs.subWfFloor = 60;
 #else
-    defPrefs.mainWfFloor = 0;
-    defPrefs.subWfFloor = 0;
+    // Default to 50% of the 0-160 range.
+    defPrefs.mainWfFloor = 80;
+    defPrefs.subWfFloor = 80;
 #endif
     defPrefs.scopeScrollX = 120;
     defPrefs.scopeScrollY = 120;
