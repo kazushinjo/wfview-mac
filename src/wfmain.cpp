@@ -2206,8 +2206,10 @@ void wfmain::setDefPrefs()
     defPrefs.rxSetup.isinput = false;
     defPrefs.txSetup.isinput = true;
     defPrefs.rxSetup.sampleRate = 48000;
-    defPrefs.rxSetup.codec = 4;
-    defPrefs.txSetup.codec = 4;
+    // Opus 1ch: LPCM's 1364-byte packets exceed the cellular path MTU.
+    // Non-wfview servers fall back to LPCM16 automatically (icomUdpHandler).
+    defPrefs.rxSetup.codec = 64;
+    defPrefs.txSetup.codec = 64;
     defPrefs.rxSetup.resampleQuality = 4;
 	
 	// Cluster
