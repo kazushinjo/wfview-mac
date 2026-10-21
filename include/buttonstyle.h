@@ -39,6 +39,19 @@ static inline QString wfview_buttonStyleSheet(const QString &extra)
         .arg(extra);
 }
 
+// Larger buttons for main actions (settings window bottom row, profile
+// save / delete) and for the exit confirmation dialogs.
+static inline QString wfview_largeButtonStyleSheet()
+{
+    return wfview_buttonStyleSheet(
+        QStringLiteral("font-size: 14pt; border-radius: 4px; padding: 6px 16px; min-height: 22px;"));
+}
+
+static inline QString wfview_largeDialogStyleSheet()
+{
+    return QStringLiteral("QLabel, QCheckBox { font-size: 14pt; }") + wfview_largeButtonStyleSheet();
+}
+
 // Darker blue used only for the transmit button so it stands out.
 static inline QString wfview_transmitButtonStyleSheet(bool transmitting)
 {

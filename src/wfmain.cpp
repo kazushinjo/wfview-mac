@@ -5249,15 +5249,17 @@ bool wfmain::doExit(bool confirmExit)
     bool ret=false;
     if (prefs.settingsChanged && prefs.confirmSettingsChanged)
     {
-        QCheckBox *cb = new QCheckBox("Don't ask me again");
-        cb->setToolTip("Don't ask me to confirm saving settings again");
+        QCheckBox *cb = new QCheckBox(tr("今後確認しない"));
+        cb->setToolTip(tr("設定の保存確認を今後表示しない"));
         QMessageBox msgbox;
-        msgbox.setText("Settings have changed since last save, exit anyway?\n");
+        msgbox.setWindowTitle(tr("終了"));
+        msgbox.setText(tr("設定が保存されていません。このまま終了しますか？\n"));
+        msgbox.setStyleSheet(wfview_largeDialogStyleSheet());
         msgbox.setIcon(QMessageBox::Icon::Question);
-        QAbstractButton *yesButton = msgbox.addButton(QMessageBox::Yes);
-        QAbstractButton *saveButton = msgbox.addButton(QMessageBox::Save);
-        msgbox.addButton(QMessageBox::No);
-        msgbox.setDefaultButton(QMessageBox::Yes);
+        QPushButton *yesButton = msgbox.addButton(tr("はい"), QMessageBox::YesRole);
+        QPushButton *saveButton = msgbox.addButton(tr("保存"), QMessageBox::AcceptRole);
+        msgbox.addButton(tr("いいえ"), QMessageBox::NoRole);
+        msgbox.setDefaultButton(yesButton);
         msgbox.setCheckBox(cb);
 #if (QT_VERSION >= QT_VERSION_CHECK(6,7,0))
         QObject::connect(cb, &QCheckBox::checkStateChanged, this, [this](Qt::CheckState state){
@@ -5294,14 +5296,16 @@ bool wfmain::doExit(bool confirmExit)
     if (!prefs.confirmExit || !confirmExit) {
         QApplication::exit();
     } else {
-        QCheckBox *cb = new QCheckBox(tr("Don't ask me again"));
-        cb->setToolTip(tr("Don't ask me to confirm exit again"));
+        QCheckBox *cb = new QCheckBox(tr("今後確認しない"));
+        cb->setToolTip(tr("終了の確認を今後表示しない"));
         QMessageBox msgbox;
-        msgbox.setText(tr("Are you sure you wish to exit?\n"));
+        msgbox.setWindowTitle(tr("終了"));
+        msgbox.setText(tr("プログラムを終了しますか？\n"));
+        msgbox.setStyleSheet(wfview_largeDialogStyleSheet());
         msgbox.setIcon(QMessageBox::Icon::Question);
-        QAbstractButton *yesButton = msgbox.addButton(QMessageBox::Yes);
-        msgbox.addButton(QMessageBox::No);
-        msgbox.setDefaultButton(QMessageBox::Yes);
+        QPushButton *yesButton = msgbox.addButton(tr("はい"), QMessageBox::YesRole);
+        msgbox.addButton(tr("いいえ"), QMessageBox::NoRole);
+        msgbox.setDefaultButton(yesButton);
         msgbox.setCheckBox(cb);
 #if (QT_VERSION >= QT_VERSION_CHECK(6,7,0))
         QObject::connect(cb, &QCheckBox::checkStateChanged, this, [this](Qt::CheckState state){

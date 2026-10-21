@@ -1,5 +1,6 @@
 #include "settingswidget.h"
 #include "ft817window.h"
+#include "buttonstyle.h"
 #include "qserialportinfo.h"
 #include "ui_settingswidget.h"
 
@@ -141,6 +142,12 @@ settingswidget::settingswidget(QWidget *parent) :
     ui->exitProgramBtn->hide();
 #endif
 
+    // Bottom row (save / defaults / connect / exit): larger than the
+    // application-wide 11pt buttons.
+    for (QPushButton *b : {ui->saveSettingsBtn, ui->revertSettingsBtn,
+                           ui->connectBtn, ui->exitProgramBtn})
+        b->setStyleSheet(wfview_largeButtonStyleSheet());
+
     connect(QGuiApplication::inputMethod(), &QInputMethod::keyboardRectangleChanged,
             this, &settingswidget::adjustForOnscreenKeyboard);
     connect(QGuiApplication::inputMethod(), &QInputMethod::visibleChanged,
@@ -208,6 +215,8 @@ void settingswidget::createConnectionProfileControls()
     connectionProfileSaveBtn->setObjectName(QStringLiteral("connectionProfileSaveBtn"));
     connectionProfileDeleteBtn = new QPushButton(tr("削除"), ui->groupConnection);
     connectionProfileDeleteBtn->setObjectName(QStringLiteral("connectionProfileDeleteBtn"));
+    connectionProfileSaveBtn->setStyleSheet(wfview_largeButtonStyleSheet());
+    connectionProfileDeleteBtn->setStyleSheet(wfview_largeButtonStyleSheet());
 
     QHBoxLayout *profileButtons = new QHBoxLayout;
     profileButtons->setContentsMargins(0, 0, 0, 0);
