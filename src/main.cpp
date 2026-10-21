@@ -5,6 +5,7 @@
 #include <QApplication>
 #include <QTimer>
 #include <QTranslator>
+#include <QLibraryInfo>
 #endif
 
 #ifdef Q_OS_WIN
@@ -195,6 +196,15 @@ int main(int argc, char *argv[])
     }
 
     qDebug() << "Changed to translation language: " << myappTranslator.language();
+    // Qt's own strings (Yes / No / Cancel and other standard buttons), from
+    // Contents/Resources/translations in the app bundle, or from the Qt
+    // installation when running an unbundled build.
+    QTranslator qtTranslator;
+    if (qtTranslator.load(QLocale(), QLatin1String("qt"), QLatin1String("_"),
+                          QCoreApplication::applicationDirPath() + QLatin1String("/../Resources/translations"))
+        || qtTranslator.load(QLocale(), QLatin1String("qt"), QLatin1String("_"),
+                             QLibraryInfo::path(QLibraryInfo::TranslationsPath)))
+        a.installTranslator(&qtTranslator);
 #endif
 
     for(int c=1; c<argc; c++)
@@ -362,11 +372,10 @@ int main(int argc, char *argv[])
     // leave Qt's logical width larger than the device viewport.
     w.show();
 #else
-    w.show();
+    // Only the Settings window at startup; connecting from it opens the
+    // main window (or the FT-817/818 window).
     QTimer::singleShot(0, &w, [&w]() {
-        w.showMaximized();
-        w.raise();
-        w.activateWindow();
+        w.showStartupSettings();
     });
 #endif
 

@@ -114,6 +114,9 @@ public:
     ~wfmain();
     static void messageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg);
     void handleLogText(QPair<QtMsgType,QString> logMessage);
+    // Startup: show only the Settings window; the main window (or the
+    // FT-817/818 window) comes up when the user connects from it.
+    void showStartupSettings();
 
 #ifdef USB_HOTPLUG
     #if defined(Q_OS_WIN)
@@ -419,7 +422,7 @@ private slots:
 
     void on_tuneNowBtn_clicked();
     void on_tuneEnableChk_clicked(bool checked);
-    bool doExit();
+    bool doExit(bool confirmExit = true);
     void on_helpBtn_clicked();
     void on_saveSettingsBtn_clicked();
     void debugBtn_clicked();
@@ -530,6 +533,11 @@ private:
     // FT-817/818 uses its own window and binary CAT protocol.
     void launchFt817Window();
     QPointer<class ft817Window> ft817Win;
+
+    void showMainWindow();
+    void loadProfileForSettings();
+    bool startupSettingsOnly = false;   // only the Settings window shown so far
+    bool mainWindowShown = false;
 
     void initLogging();
     QTimer logCheckingTimer;

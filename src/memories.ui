@@ -67,7 +67,7 @@
        <item>
         <widget class="QPushButton" name="scanButton">
          <property name="text">
-          <string>Start Scan</string>
+          <string>スキャン開始</string>
          </property>
         </widget>
        </item>
@@ -124,7 +124,7 @@
        <item>
         <widget class="QPushButton" name="modeButton">
          <property name="text">
-          <string>Select Memory Mode</string>
+          <string>メモリーモードを選択</string>
          </property>
         </widget>
        </item>

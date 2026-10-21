@@ -150,6 +150,7 @@ public:
 
 signals:
     void closed();
+    void exitRequested();   // radio powered off with the 電源 key: quit wfview
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -218,6 +219,7 @@ private:
     // Software range scan: the FT-817 CAT has no scan command, so step the
     // frequency and stop on an open squelch (RX status bit 7).
     enum class ScanResume { afterTime, afterSignalGone, stay };
+    void showScanWindow();
     void startScan();
     void stopScan(const QString& reason);
     void scanGoTo(qint64 hz);
@@ -275,6 +277,8 @@ private:
     QPushButton *refreshBtn = nullptr;
     QPushButton *disconnectBtn = nullptr;
     QLineEdit *freqInput = nullptr;
+    QWidget *scanWindow = nullptr;
+    QPushButton *scanWindowBtn = nullptr;
     QLineEdit *scanStartEdit = nullptr;
     QLineEdit *scanEndEdit = nullptr;
     QLineEdit *scanStepEdit = nullptr;

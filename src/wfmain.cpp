@@ -509,8 +509,13 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     fts = new FirstTimeSetup();
 
     if(prefs.hasRunSetup) {
+#ifdef WFVIEW_IOS
         qDebug(logSystem()) << "Running openRig()";
         openRig();
+#else
+        // Desktop: no automatic connect; the startup Settings window connects.
+        qDebug(logSystem()) << "Waiting for a connection from the Settings window";
+#endif
     } else {
         qInfo(logSystem()) << "Detected first-time run. Showing the First Time Setup widget.";
 
@@ -729,6 +734,16 @@ bool wfmain::eventFilter(QObject *obj, QEvent *event)
         doExit();
         return true;
     }
+    // Closing the startup Settings window (main window never shown) exits.
+    if (obj == setupui && startupSettingsOnly && event->type() == QEvent::Close)
+    {
+        if (doExit())
+        {
+            event->ignore();
+            return true;
+        }
+        return false;
+    }
     return QMainWindow::eventFilter(obj, event);
 }
 
@@ -760,8 +775,7 @@ void wfmain::openRig()
 
     // The FT-817/818 is driven by its own window, not the rig pipeline. Also covers
     // the automatic connect at startup, which runs before the main window is shown.
-    // main.cpp queues showMaximized() after this, so defer twice to run after it;
-    // otherwise the main window is shown again on top of the FT-817 window.
+    // Deferred so that the caller has finished updating the main window first.
     if (prefs.manufacturer == manufYaesu
         && (prefs.radioCIVAddr == FT817_MODEL_ID || prefs.radioCIVAddr == FT818_MODEL_ID))
     {
@@ -1338,6 +1352,7 @@ void wfmain::connectSettingsWidget()
     connect(setupui, SIGNAL(connectButtonPressed()), this, SLOT(handleExtConnectBtn()));
     connect(setupui, SIGNAL(saveSettingsButtonPressed()), this, SLOT(on_saveSettingsBtn_clicked()));
     connect(setupui, SIGNAL(revertSettingsButtonPressed()), this, SLOT(handleRevertSettingsBtn()));
+    connect(setupui, &settingswidget::exitProgramButtonPressed, this, [this]() { doExit(); });
     connect(setupui, SIGNAL(connectionProfileSelected(QString)), this, SLOT(handleConnectionProfileSelected(QString)));
     connect(setupui, SIGNAL(connectionProfileSaveRequested(QString)), this, SLOT(handleConnectionProfileSaveRequested(QString)));
     connect(setupui, SIGNAL(connectionProfileDeleteRequested(QString)), this, SLOT(handleConnectionProfileDeleteRequested(QString)));
@@ -4995,6 +5010,16 @@ void wfmain::changePrimaryMeter(bool transmitOn) {
 
 void wfmain::changeFullScreenMode(bool checked)
 {
+#ifndef WFVIEW_IOS
+    // Before the main window first appears, only record the choice;
+    // showMainWindow() applies it.
+    if (!mainWindowShown)
+    {
+        onFullscreen = checked;
+        prefs.useFullScreen = checked;
+        return;
+    }
+#endif
     if(checked)
     {
         this->showFullScreen();
@@ -5219,7 +5244,7 @@ void wfmain::on_tuneEnableChk_clicked(bool checked)
     ATUCheckTimer.start(5000);
 }
 
-bool wfmain::doExit()
+bool wfmain::doExit(bool confirmExit)
 {
     bool ret=false;
     if (prefs.settingsChanged && prefs.confirmSettingsChanged)
@@ -5266,7 +5291,7 @@ bool wfmain::doExit()
     }
 
     // Are you sure?
-    if (!prefs.confirmExit) {
+    if (!prefs.confirmExit || !confirmExit) {
         QApplication::exit();
     } else {
         QCheckBox *cb = new QCheckBox(tr("Don't ask me again"));
@@ -5412,11 +5437,22 @@ void wfmain::on_connectBtn_clicked()
     }
 
     if (connStatus == connDisconnected) {
+        if (startupSettingsOnly)
+        {
+            startupSettingsOnly = false;
+            setupui->hide();
+            showMainWindow();
+        }
         connectionHandler(true);
     }
     else
     {
         connectionHandler(false);
+#ifndef WFVIEW_IOS
+        // Disconnecting returns to the Settings window, as at startup.
+        hide();
+        showStartupSettings();
+#endif
     }
 
     ui->connectBtn->clearFocus();
@@ -5460,9 +5496,19 @@ void wfmain::launchFt817Window()
 
     ft817Win = new ft817Window(port, baud, prefs.radioCIVAddr == FT818_MODEL_ID);
     connect(ft817Win, &ft817Window::closed, this, [this]() {
-        qInfo(logSystem()) << "FT-817/818 window closed, returning to the main window";
-        this->show();
-        this->raise();
+        qInfo(logSystem()) << "FT-817/818 window closed, returning to the Settings window";
+        showStartupSettings();
+    });
+    connect(ft817Win, &ft817Window::exitRequested, this, [this]() {
+        // The user already confirmed in the FT-817/818 window, so no second
+        // "exit?" question; unsaved settings are still asked about.
+        if (doExit(false))
+        {
+            ft817Win->close();      // exit cancelled: back to the Settings window
+            return;
+        }
+        ft817Win->blockSignals(true);
+        ft817Win->close();
     });
     if (!ft817Win->openPort())
     {
@@ -5474,10 +5520,52 @@ void wfmain::launchFt817Window()
     }
 
     qInfo(logSystem()) << "Starting FT-817/818 window on" << port << "at" << baud;
+    startupSettingsOnly = false;
     if (setupui->isVisible())
         setupui->hide();
     this->hide();
     ft817Win->show();
+}
+
+void wfmain::showStartupSettings()
+{
+    startupSettingsOnly = true;
+    setupui->installEventFilter(this);
+    showAndRaiseWidget(setupui);
+}
+
+void wfmain::loadProfileForSettings()
+{
+    // The Settings window always starts from the selected connection profile,
+    // but not while a radio is in use: that would change settings under it.
+    if (connStatus != connDisconnected || (ft817Win && !startupSettingsOnly))
+        return;
+    if (currentConnectionProfile.isEmpty())
+        return;
+    // Loading a saved profile is not an unsaved change.
+    const bool changed = prefs.settingsChanged;
+    if (!loadConnectionProfile(currentConnectionProfile))
+        qWarning(logSystem()) << "Could not load connection profile" << currentConnectionProfile;
+    prefs.settingsChanged = changed;
+}
+
+void wfmain::showMainWindow()
+{
+    // The first time, open maximized as main.cpp used to at startup.
+    if (!mainWindowShown)
+    {
+        mainWindowShown = true;
+        if (prefs.useFullScreen)
+            showFullScreen();
+        else
+            showMaximized();
+    }
+    else
+    {
+        show();
+    }
+    raise();
+    activateWindow();
 }
 
 void wfmain::on_sqlSlider_valueChanged(int value)
@@ -5688,6 +5776,9 @@ void wfmain::showAndRaiseWidget(QWidget *w)
 {
     if(!w)
         return;
+
+    if (w == setupui)
+        loadProfileForSettings();
 
 #ifdef WFVIEW_IOS
     if (w == setupui || w == selRad || w == logWindow ||
@@ -7973,7 +8064,11 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
 
         ui->memoriesBtn->setEnabled(rigCaps->commands.contains(funcMemoryContents));
 
+#ifdef WFVIEW_IOS
         ui->connectBtn->setText("無線機から切断"); // We must be connected now.
+#else
+        ui->connectBtn->setText("切断して戻る"); // We must be connected now.
+#endif
         connStatus = connConnected;
 
         // Now we know that we are connected, enable rigctld

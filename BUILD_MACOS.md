@@ -179,6 +179,11 @@ install_name_tool -id @rpath/libqcustomplot.1.dylib \
 install_name_tool -change libqcustomplot.1.dylib @rpath/libqcustomplot.1.dylib \
    wfview.app/Contents/MacOS/wfview
 
+# ★Qt 標準ダイアログ（はい / いいえ / キャンセル等）の日本語訳を組み込む
+mkdir -p wfview.app/Contents/Resources/translations
+cp ~/Qt/6.8.1/macos/translations/{qt,qtbase,qtdeclarative,qtmultimedia,qtserialport,qtwebsockets}_ja.qm \
+   wfview.app/Contents/Resources/translations/
+
 # ★ad-hoc 署名（Apple Silicon では未署名 arm64 は起動時に kill される）
 #   install_name_tool で署名が壊れるので必ず最後に署名する
 codesign --force --deep -s - wfview.app
