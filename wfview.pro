@@ -360,7 +360,7 @@ contains(DEFINES,USB_CONTROLLER){
 # iOS links its own static libopus.a (see ios block above).
 !win32:!ios:LIBS += -L./ -lopus
 
-win32:LIBS += -lopus -lole32 -luser32
+win32:LIBS += -lopus -lole32 -luser32 -limm32
 
 #contains(DEFINES,FTDI_SUPPORT){
 #  !win32:LIBS += -lft4222
@@ -398,6 +398,7 @@ DEFINES += "EXPORT="
 
 SOURCES += \
     src/aboutbox.cpp \
+    src/ft817window.cpp \
     src/audio/adpcm/adpcm-dns.c \
     src/audio/adpcm/adpcm-lib.c \
     src/audio/audioconverter.cpp \
@@ -492,6 +493,7 @@ SOURCES += \
     src/wfmain.cpp
 
 HEADERS  += \
+    include/ft817window.h \
     src/audio/adpcm/adpcm-lib.h \
     src/audio/resampler/resample_neon.h \
     src/audio/resampler/speex_resampler.h \
@@ -561,6 +563,7 @@ HEADERS  += \
     include/clickablelabel.h \
     include/qledlabel.h \
     include/receiverwidget.h \
+    include/buttonstyle.h \
     include/repeaterattributes.h \
     include/repeatersetup.h \
     include/rigcommander.h \

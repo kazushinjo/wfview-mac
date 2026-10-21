@@ -1,21 +1,147 @@
 #include "settingswidget.h"
+#include "ft817window.h"
 #include "qserialportinfo.h"
 #include "ui_settingswidget.h"
 
 #include <QAbstractItemView>
 #include <QApplication>
+#include <QGuiApplication>
 #include <QHBoxLayout>
+#include <QInputMethod>
 #include <QLabel>
 #include <QPushButton>
+#include <QRegularExpressionValidator>
+#include <QScreen>
+#include <QPointer>
+#include <QTimer>
+
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <imm.h>
+#endif
 
 #define setchk(a,b) quietlyUpdateCheckbox(a,b)
 
+// QValidator does not intercept IME-committed text (e.g. Japanese full-width
+// conversion), so strip anything outside printable half-width ASCII after
+// the fact as well. Returns true if the field's text was changed.
+static bool enforceHalfWidth(QLineEdit *edit)
+{
+    const QString original = edit->text();
+    QString filtered;
+    filtered.reserve(original.size());
+    for (const QChar &c : original)
+    {
+        if (c.unicode() >= 0x20 && c.unicode() <= 0x7E)
+            filtered.append(c);
+    }
+    if (filtered == original)
+        return false;
+
+    // Deliberately do not block signals: setText() below re-emits
+    // textChanged(), which re-enters this function and terminates
+    // immediately next time since filtered == original by then.
+    const int removed = original.size() - filtered.size();
+    const int cursorPos = edit->cursorPosition();
+    edit->setText(filtered);
+    edit->setCursorPosition(qMax(0, cursorPos - removed));
+    return true;
+}
+
+
+// Makes a line edit take half-width alphanumerics: whenever it gains focus,
+// switch the Windows IME off (plain keyboard input, like pressing the
+// 半角/全角 key). Simply disabling WA_InputMethodEnabled did not work: QLineEdit
+// re-enables it on focus for PasswordEchoOnEdit fields, and the IME mode was
+// left as it was. Anything full-width still typed is stripped afterwards by
+// enforceHalfWidth().
+// Password fields (PasswordEchoOnEdit) are switched to a plain Normal field
+// while focused, so Windows gives them the same keyboard as the user ID field
+// rather than a password-type one. Like PasswordEchoOnEdit (which erases the
+// old content once typing starts), the stored password is never shown: the
+// field is emptied on focus and the old password is put back if nothing was
+// typed, then the field returns to masked display once focus leaves.
+class imeBlocker : public QObject
+{
+public:
+    using QObject::QObject;
+
+    static void apply(QLineEdit *edit)
+    {
+        edit->setInputMethodHints(edit->inputMethodHints() | Qt::ImhLatinOnly);
+        edit->installEventFilter(new imeBlocker(edit));
+    }
+
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override
+    {
+        QLineEdit *edit = qobject_cast<QLineEdit *>(obj);
+        if (edit && event->type() == QEvent::FocusIn
+            && edit->echoMode() == QLineEdit::PasswordEchoOnEdit)
+        {
+            edit->setProperty("wfviewMaskedWhenIdle", true);
+            edit->setProperty("wfviewSavedPassword", edit->text());
+            const bool blocked = edit->blockSignals(true);
+            edit->setEchoMode(QLineEdit::Normal);
+            edit->clear();
+            edit->blockSignals(blocked);
+        }
+        else if (edit && event->type() == QEvent::FocusOut
+                 && edit->property("wfviewMaskedWhenIdle").toBool()
+                 && edit->echoMode() == QLineEdit::Normal)
+        {
+            const bool blocked = edit->blockSignals(true);
+            if (!edit->isModified() && edit->text().isEmpty())
+                edit->setText(edit->property("wfviewSavedPassword").toString());
+            edit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
+            edit->blockSignals(blocked);
+            edit->setProperty("wfviewSavedPassword", QVariant());
+        }
+
+        if (event->type() == QEvent::FocusIn)
+        {
+            QPointer<QWidget> w = qobject_cast<QWidget *>(obj);
+            // Deferred so it runs after Qt has finished its own focus/IME
+            // handling for the field.
+            QTimer::singleShot(0, this, [w]() {
+                if (w && w->hasFocus())
+                    switchImeOff(w);
+            });
+        }
+        return QObject::eventFilter(obj, event);
+    }
+
+private:
+    static void switchImeOff(QWidget *w)
+    {
+#ifdef Q_OS_WIN
+        HWND hwnd = reinterpret_cast<HWND>(w->window()->winId());
+        HIMC himc = ImmGetContext(hwnd);
+        if (himc)
+        {
+            ImmSetOpenStatus(himc, FALSE);
+            ImmReleaseContext(hwnd, himc);
+        }
+#else
+        Q_UNUSED(w);
+#endif
+    }
+};
 
 settingswidget::settingswidget(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::settingswidget)
 {
     ui->setupUi(this);
+
+    connect(QGuiApplication::inputMethod(), &QInputMethod::keyboardRectangleChanged,
+            this, &settingswidget::adjustForOnscreenKeyboard);
+    connect(QGuiApplication::inputMethod(), &QInputMethod::visibleChanged,
+            this, &settingswidget::adjustForOnscreenKeyboard);
+
     createConnectionProfileControls();
     populateCivAddrCombo();
     if (ui->rigCIVaddrCombo->lineEdit() != Q_NULLPTR)
@@ -261,6 +387,26 @@ void settingswidget::populateComboBoxes()
     ui->audioTXCodecCombo->blockSignals(false);
 
     ui->controlPortTxt->setValidator(new QIntValidator(this));
+    QRegularExpressionValidator *halfWidthValidator = new QRegularExpressionValidator(QRegularExpression("[\\x20-\\x7E]*"), this);
+    ui->ipAddressTxt->setValidator(halfWidthValidator);
+    ui->usernameTxt->setValidator(halfWidthValidator);
+    ui->passwordTxt->setValidator(halfWidthValidator);
+    ui->clusterUsernameLineEdit->setValidator(halfWidthValidator);
+    ui->clusterPasswordLineEdit->setValidator(halfWidthValidator);
+    // QValidator alone does not intercept IME-committed text (e.g. Japanese
+    // full-width conversion), so restrict the input method itself as well.
+    ui->ipAddressTxt->setInputMethodHints(Qt::ImhLatinOnly);
+    ui->usernameTxt->setInputMethodHints(Qt::ImhLatinOnly);
+    ui->passwordTxt->setInputMethodHints(Qt::ImhLatinOnly | Qt::ImhSensitiveData);
+    ui->clusterUsernameLineEdit->setInputMethodHints(Qt::ImhLatinOnly);
+    ui->clusterPasswordLineEdit->setInputMethodHints(Qt::ImhLatinOnly | Qt::ImhSensitiveData);
+    // ImhLatinOnly is only a hint that IMEs may ignore; actually disable the
+    // input method for these fields so IME composition cannot engage at all.
+    imeBlocker::apply(ui->ipAddressTxt);
+    imeBlocker::apply(ui->usernameTxt);
+    imeBlocker::apply(ui->passwordTxt);
+    imeBlocker::apply(ui->clusterUsernameLineEdit);
+    imeBlocker::apply(ui->clusterPasswordLineEdit);
 
     ui->modInputData2ComboText->setVisible(false);
     ui->modInputData2Combo->setVisible(false);
@@ -1602,6 +1748,7 @@ void settingswidget::serverAddUserLine(int row, const QString &user, const QStri
     username->setProperty("row", row);
     username->setProperty("col", (int)0);
     username->setText(user);
+    imeBlocker::apply(username);
     connect(username, SIGNAL(editingFinished()), this, SLOT(onServerUserFieldChanged()));
     ui->serverUsersTable->setCellWidget(row, 0, username);
 
@@ -1610,6 +1757,7 @@ void settingswidget::serverAddUserLine(int row, const QString &user, const QStri
     password->setProperty("col", (int)1);
     password->setEchoMode(QLineEdit::PasswordEchoOnEdit);
     password->setText(pass);
+    imeBlocker::apply(password);
     connect(password, SIGNAL(editingFinished()), this, SLOT(onServerUserFieldChanged()));
     ui->serverUsersTable->setCellWidget(row, 1, password);
 
@@ -1841,6 +1989,13 @@ void settingswidget::populateCivAddrCombo()
             ui->rigCIVaddrCombo->addItem(QString("%1 (%2)").arg(QString::fromLatin1(m.name),
                                          QString::number(m.addr, 16).toUpper()), m.addr);
         }
+    }
+    if (prefs != Q_NULLPTR && prefs->manufacturer == manufYaesu)
+    {
+        // The FT-817/818 has no rig definition file: it uses the legacy binary
+        // CAT protocol and is driven by its own window (see ft817window.h).
+        ui->rigCIVaddrCombo->addItem(QStringLiteral("FT-817 / 817ND (USB serial CAT)"), FT817_MODEL_ID);
+        ui->rigCIVaddrCombo->addItem(QStringLiteral("FT-818 (USB serial CAT)"), FT818_MODEL_ID);
     }
     ui->rigCIVaddrCombo->setCurrentIndex(-1);
     ui->rigCIVaddrCombo->blockSignals(false);
@@ -2502,6 +2657,18 @@ void settingswidget::on_clusterPasswordLineEdit_editingFinished()
     prefs->clusterTcpPassword =  ui->clusterPasswordLineEdit->text();
 }
 
+void settingswidget::on_clusterUsernameLineEdit_textChanged(const QString &arg1)
+{
+    Q_UNUSED(arg1)
+    enforceHalfWidth(ui->clusterUsernameLineEdit);
+}
+
+void settingswidget::on_clusterPasswordLineEdit_textChanged(const QString &arg1)
+{
+    Q_UNUSED(arg1)
+    enforceHalfWidth(ui->clusterPasswordLineEdit);
+}
+
 void settingswidget::on_clusterTimeoutLineEdit_editingFinished()
 {
     prefs->clusterTimeout = ui->clusterTimeoutLineEdit->displayText().toInt();
@@ -2547,12 +2714,16 @@ void settingswidget::on_adminLoginChk_clicked(bool checked)
 
 void settingswidget::on_ipAddressTxt_textChanged(const QString &arg1)
 {
+    if (enforceHalfWidth(ui->ipAddressTxt))
+        return; // setText() above will re-trigger this slot with the filtered text
     udpPrefs->ipAddress = arg1;
     emit changedUdpPref(u_ipAddress);
 }
 
 void settingswidget::on_usernameTxt_textChanged(const QString &arg1)
 {
+    if (enforceHalfWidth(ui->usernameTxt))
+        return;
     udpPrefs->username = arg1;
     emit changedUdpPref(u_username);
 }
@@ -2603,8 +2774,57 @@ void settingswidget::on_scopePortTxt_textChanged(const QString &arg1)
 
 void settingswidget::on_passwordTxt_textChanged(const QString &arg1)
 {
+    if (enforceHalfWidth(ui->passwordTxt))
+        return;
     udpPrefs->password = arg1;
     emit changedUdpPref(u_password);
+}
+
+// On small displays, the Windows on-screen keyboard can cover the
+// userid/password fields being edited. When that happens, nudge this
+// (top-level, freely-movable) window up just enough to keep the focused
+// field visible, and put it back once the keyboard is dismissed.
+void settingswidget::adjustForOnscreenKeyboard()
+{
+    if (!isVisible() || !window()->isWindow())
+        return;
+
+    QInputMethod *im = QGuiApplication::inputMethod();
+    const QRect kbRect = im->keyboardRectangle().toRect();
+    const bool kbVisible = im->isVisible() && !kbRect.isEmpty();
+
+    QWidget *fw = QApplication::focusWidget();
+    const bool relevantFieldFocused = fw && isAncestorOf(fw) &&
+        (fw == ui->ipAddressTxt || fw == ui->usernameTxt || fw == ui->passwordTxt);
+
+    QWidget *win = window();
+
+    if (kbVisible && relevantFieldFocused)
+    {
+        const QRect fieldGlobalRect(fw->mapToGlobal(QPoint(0, 0)), fw->size());
+        const int overlap = fieldGlobalRect.bottom() - kbRect.top();
+        if (overlap > 0)
+        {
+            if (!windowMovedForKeyboard)
+            {
+                posBeforeKeyboardAdjust = win->pos();
+                windowMovedForKeyboard = true;
+            }
+            int newY = win->y() - overlap - 12; // small margin above the keyboard
+            QScreen *scr = win->screen();
+            const int minY = scr ? scr->availableGeometry().top() : 0;
+            if (newY < minY)
+                newY = minY;
+            win->move(win->x(), newY);
+        }
+        return;
+    }
+
+    if (windowMovedForKeyboard)
+    {
+        win->move(posBeforeKeyboardAdjust);
+        windowMovedForKeyboard = false;
+    }
 }
 
 void settingswidget::on_audioDuplexCombo_currentIndexChanged(int index)

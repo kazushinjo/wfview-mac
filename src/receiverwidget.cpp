@@ -1,4 +1,5 @@
 #include "receiverwidget.h"
+#include "buttonstyle.h"
 #include "logcategories.h"
 #include "rigidentities.h"
 
@@ -114,7 +115,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
         queue->add(priorityHighest,t.modeFunc,false,t.receiver);
     });
 
-    satelliteButton=new QPushButton(tr("SAT"),this);
+    satelliteButton=new QPushButton(tr("サテライト"),this);
     satelliteButton->setHidden(true);
     satelliteButton->setCheckable(true);
     satelliteButton->setFocusPolicy(Qt::StrongFocus);
@@ -122,7 +123,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
         queue->add(priorityImmediate,queueItem(funcSatelliteMode,QVariant::fromValue<bool>(en),false,0));
     });
 
-    splitButton=new QPushButton(tr("SPLIT"),this);
+    splitButton=new QPushButton(tr("スプリット"),this);
     splitButton->setHidden(true);
     splitButton->setFocusPolicy(Qt::StrongFocus);
     splitButton->setCheckable(true);
@@ -222,7 +223,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
 #ifdef WFVIEW_IOS
     detachButton = new QPushButton(QStringLiteral("切離し"));
 #else
-    detachButton = new QPushButton(tr("Detach"));
+    detachButton = new QPushButton(tr("切離し"));
 #endif
     detachButton->setCheckable(true);
     detachButton->setToolTip(tr("Detach/re-attach scope from main window"));
@@ -236,19 +237,19 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     //edgeLabel = new QLabel("Edge:");
     edgeCombo = new QComboBox();
     edgeCombo->setAccessibleDescription(tr("Spectrum Edge"));
-    edgeButton = new QPushButton(tr("Custom Edge"));
+    edgeButton = new QPushButton(tr("カスタムエッジ"));
     edgeButton->setToolTip(tr("Define a custom (fixed) scope edge"));
-    toFixedButton = new QPushButton(tr("To Fixed"));
+    toFixedButton = new QPushButton(tr("固定エッジへ"));
     toFixedButton->setToolTip(tr("&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Press button to convert center mode spectrum to fixed mode, preserving the range. This allows you to tune without the spectrum moving, in the same currently-visible range that you see now. &lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;The currently-selected edge slot will be overridden.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"));
 
-    holdButton = new QPushButton("HOLD");
+    holdButton = new QPushButton("ホールド");
     holdButton->setCheckable(true);
     holdButton->setFocusPolicy(Qt::StrongFocus);
 
     controlSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
     midSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
 
-    clearPeaksButton = new QPushButton("Clear Peaks");
+    clearPeaksButton = new QPushButton("ピーククリア");
 
     confButton = new QPushButton("◀");
     confButton->setAccessibleName(tr("Configure Scope"));
@@ -315,6 +316,9 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     splitter->addWidget(spectrum);
     splitter->addWidget(waterfall);
     splitter->setHandleWidth(5);
+    // Give the waterfall less vertical space than the spectrum (3:2).
+    splitter->setStretchFactor(0, 3);
+    splitter->setStretchFactor(1, 2);
 
     spectrum->axisRect()->setMargins(QMargins(30,0,0,0));
     waterfall->axisRect()->setMargins(QMargins(30,0,0,0));
@@ -964,16 +968,11 @@ void receiverWidget::colorPreset(colorPrefsType *cp)
 
     waterfall->setBackground(cp->wfBackground);
 
-    holdButton->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border:1px solid;}")
-                                  .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-    splitButton->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border:1px solid;}")
-                                   .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-    satelliteButton->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border:1px solid;}")
-                                   .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-    vfoSelectButton->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border:1px solid;}")
-                                   .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-    vfoMemoryButton->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border:1px solid;}")
-                                   .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
+    holdButton->setStyleSheet(wfview_buttonStyleSheet(QString()));
+    splitButton->setStyleSheet(wfview_buttonStyleSheet(QString()));
+    satelliteButton->setStyleSheet(wfview_buttonStyleSheet(QString()));
+    vfoSelectButton->setStyleSheet(wfview_buttonStyleSheet(QString()));
+    vfoMemoryButton->setStyleSheet(wfview_buttonStyleSheet(QString()));
 
 }
 
@@ -1598,7 +1597,7 @@ void receiverWidget::customSpanPressed()
     QHBoxLayout* buttons = new QHBoxLayout();
     layout->addLayout(buttons);
     QPushButton *ok = new QPushButton("OK");
-    QPushButton *cancel = new QPushButton("Cancel");
+    QPushButton *cancel = new QPushButton("キャンセル");
     buttons->addWidget(ok);
     buttons->addWidget(cancel);
 
@@ -1738,7 +1737,7 @@ void receiverWidget::scopeClick(QMouseEvent* me)
                 QLabel* spotter = new QLabel(QString("Spotter:%1").arg(spot.value()->spottercall));
                 QLabel* frequency = new QLabel(QString("Frequency:%1 MHz").arg(spot.value()->frequency));
                 QLabel* comment = new QLabel(QString("Comment:%1").arg(spot.value()->comment));
-                QAbstractButton* bExit = new QPushButton("Close");
+                QAbstractButton* bExit = new QPushButton("閉じる");
                 vlayout->addWidget(dxcall);
                 vlayout->addWidget(spotter);
                 vlayout->addWidget(frequency);
@@ -2744,7 +2743,7 @@ void receiverWidget::detachScope(bool state)
     if (state)
     {
         windowLabel = new QLabel();
-        detachButton->setText("Attach");
+        detachButton->setText("戻す");
         qInfo(logGui()) << "Detaching scope" << (receiver?"Sub":"Main");
         this->parentWidget()->layout()->replaceWidget(this,windowLabel);
 
@@ -2763,7 +2762,7 @@ void receiverWidget::detachScope(bool state)
 
         this->move(screen()->geometry().center() - frameGeometry().center());
     } else {
-        detachButton->setText("Detach");
+        detachButton->setText("切離し");
         qInfo(logGui()) << "Attaching scope" << (receiver?"Sub":"Main");
         windowLabel->parentWidget()->layout()->replaceWidget(windowLabel,this);
 

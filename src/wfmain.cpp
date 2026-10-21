@@ -1,5 +1,6 @@
 #include "wfmain.h"
 #include "icomserver.h"
+#include "ft817window.h"
 #include "ui_wfmain.h"
 
 #include "rigidentities.h"
@@ -7,6 +8,7 @@
 
 #include <QLabel>
 #include <QPushButton>
+#include "buttonstyle.h"
 #include <QSlider>
 #include <QTextBrowser>
 #include <QVBoxLayout>
@@ -129,24 +131,22 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     ritInlineLayout->setContentsMargins(0, 0, 0, 0);
     ritInlineLayout->setSpacing(4);
 
-    QPushButton *fineButton = new QPushButton(QStringLiteral("Fine"), ui->mainGroup);
+    QPushButton *fineButton = new QPushButton(QStringLiteral("微調整"), ui->mainGroup);
     fineButton->setObjectName(QStringLiteral("fineTuningButton"));
     fineButton->setCheckable(true);
     fineButton->setFixedWidth(80);
     fineButton->setToolTip(QStringLiteral("周波数ダイアルを1 Hzステップに切り替えます"));
-    fineButton->setStyleSheet(QStringLiteral(
-        "QPushButton { border-radius: 8px; }"
-        "QPushButton:checked { background-color: #f6d6a8; color: #202124; }"));
+    fineButton->setStyleSheet(
+        wfview_buttonStyleSheet(QStringLiteral("border-radius: 8px;")));
     fineLockLayout->addWidget(fineButton);
 
-    iosLockButton = new QPushButton(QStringLiteral("Lock"), ui->mainGroup);
+    iosLockButton = new QPushButton(QStringLiteral("ロック"), ui->mainGroup);
     iosLockButton->setObjectName(QStringLiteral("frequencyLockButton"));
     iosLockButton->setCheckable(true);
     iosLockButton->setFixedWidth(80);
     iosLockButton->setToolTip(QStringLiteral("周波数をロックします"));
-    iosLockButton->setStyleSheet(QStringLiteral(
-        "QPushButton { border-radius: 8px; }"
-        "QPushButton:checked { background-color: #f6d6a8; color: #202124; }"));
+    iosLockButton->setStyleSheet(
+        wfview_buttonStyleSheet(QStringLiteral("border-radius: 8px;")));
     fineLockLayout->addWidget(iosLockButton);
 
     ritInlineLayout->addWidget(ui->ritTuneDial);
@@ -185,9 +185,12 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     for (QPushButton *button : roundedControlButtons)
         button->setStyleSheet(button->styleSheet()
                               + QStringLiteral("QPushButton { border-radius: 10px; }"));
-    ui->transmitBtn->setStyleSheet(QStringLiteral(
-        "QPushButton { background-color: #c8e6c9; color: #202124; "
-        "font-weight: bold; border-radius: 10px; padding: 4px 10px; }"));
+    // Taller operating buttons (TUNE, CW, repeater, memory, power on/off).
+    // This also shrinks the spectrum/waterfall above them.
+    for (QPushButton *button : roundedControlButtons)
+        if (button != ui->transmitBtn && button != ui->splitBtn)
+            button->setMinimumHeight(40);
+    ui->transmitBtn->setStyleSheet(wfview_transmitButtonStyleSheet(false));
 
     // Accessibility: the operating buttons are NoFocus in the .ui so the tuning
     // controls keep keyboard focus. That leaves keyboard-only and VoiceOver
@@ -205,6 +208,14 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     };
     for (QPushButton* btn : tabFocusButtons)
         btn->setFocusPolicy(Qt::StrongFocus);
+
+    // Make the bottom row of buttons (Settings ... Exit) a little taller.
+    for (int i = 0; i < ui->horizontalLayout_16->count(); i++)
+    {
+        QWidget *w = ui->horizontalLayout_16->itemAt(i)->widget();
+        if (QPushButton *btn = qobject_cast<QPushButton *>(w))
+            btn->setMinimumHeight(40);
+    }
 
     // Require a double-click on the exit button so it can't be triggered by
     // an accidental single click; see eventFilter().
@@ -747,8 +758,21 @@ void wfmain::openRig()
     //     showRigSettings(); // rig setting dialog box for network/serial, CIV, hostname, port, baud rate, serial device, etc
     // TODO: How do we know if the setting was loaded?
 
+    // The FT-817/818 is driven by its own window, not the rig pipeline. Also covers
+    // the automatic connect at startup, which runs before the main window is shown.
+    // main.cpp queues showMaximized() after this, so defer twice to run after it;
+    // otherwise the main window is shown again on top of the FT-817 window.
+    if (prefs.manufacturer == manufYaesu
+        && (prefs.radioCIVAddr == FT817_MODEL_ID || prefs.radioCIVAddr == FT818_MODEL_ID))
+    {
+        QTimer::singleShot(0, this, [this]() {
+            QTimer::singleShot(0, this, &wfmain::launchFt817Window);
+        });
+        return;
+    }
+
     emit connectionStatus(true); // Signal any other parts that need to know if we are connecting/connected.
-    ui->connectBtn->setText("Cancel connection"); // We are attempting to connect
+    ui->connectBtn->setText("接続を中止"); // We are attempting to connect
     connStatus = connConnecting;
     isRadioAdmin = true; // Set user to admin, will be reset if not.
     // M0VSE: This could be in a better place maybe?
@@ -1191,7 +1215,11 @@ void wfmain::setupMainUI()
     rigStatus = new QLabel(this);
     ui->statusBar->addPermanentWidget(rigStatus);
     rigStatus->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
-    rigStatus->setFixedWidth(220);
+    // Wide enough for the longest status.message from icomUdpHandler, e.g.
+    // "(no tx) rx latency: 999 ms / rtt: 999 ms / loss: 999/999 / audio
+    // drops: 999" (~75 monospace chars) -- 220px predates the rtt/loss/audio
+    // drops fields and was clipping them off the right edge.
+    rigStatus->setFixedWidth(480);
     ui->statusBar->showMessage("Connecting to rig...", 1000);
 
     pttLed = new QLedLabel(this);
@@ -3168,12 +3196,9 @@ void wfmain::extChangedColPref(prefColItem i)
     // Any updated scope colors will cause the scope colorPreset to be changed.
     case col_buttonOff:
     case col_buttonOn:
-        ui->scopeDualBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
-                                        .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-        ui->dualWatchBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
-                                        .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-        ui->splitBtn->setStyleSheet(QString("QPushButton {background-color: %0;border-radius: 10px;} QPushButton:checked {background-color: %1;border: 1px solid;border-radius: 10px;}")
-                                        .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
+        ui->scopeDualBtn->setStyleSheet(wfview_buttonStyleSheet(QStringLiteral("")));
+        ui->dualWatchBtn->setStyleSheet(wfview_buttonStyleSheet(QStringLiteral("")));
+        ui->splitBtn->setStyleSheet(wfview_buttonStyleSheet(QStringLiteral("border-radius: 10px;")));
         //    ui->mainSubTrackingBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
         //                                    .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
     case col_grid:
@@ -4638,9 +4663,9 @@ static QString wfview_iosTouchStyleSheet()
         "QPushButton#tuneNowBtn, QPushButton#cwButton,"
         "QPushButton#rptSetupBtn, QPushButton#splitBtn, QPushButton#memoriesBtn"
         " { border-radius: 10px; padding: 4px 10px; }"
-        // Transmit button: pale-green background at all times (crimson text is
-        // applied dynamically while transmitting).
-        "QPushButton#transmitBtn { background-color: #c8e6c9; color: #202124; font-weight: bold; border-radius: 10px; padding: 4px 10px; }"
+        // Transmit button: bold text (crimson text is applied dynamically
+        // while transmitting).
+        "QPushButton#transmitBtn { font-weight: bold; border-radius: 10px; padding: 4px 10px; }"
     );
 }
 #endif
@@ -4672,15 +4697,16 @@ void wfmain::setAppTheme(bool isCustom)
 #ifdef WFVIEW_IOS
                 sheet += wfview_iosTouchStyleSheet();
 #endif
+                sheet += wfview_buttonStyleSheet();
                 qApp->setStyleSheet(sheet);
             }
         }
     } else {
 #ifdef WFVIEW_IOS
         // Even with the "system" theme, keep touch-friendly sizing on iOS.
-        qApp->setStyleSheet(wfview_iosTouchStyleSheet());
+        qApp->setStyleSheet(wfview_iosTouchStyleSheet() + wfview_buttonStyleSheet());
 #else
-        qApp->setStyleSheet("");
+        qApp->setStyleSheet(wfview_buttonStyleSheet());
 #endif
     }
 }
@@ -4916,14 +4942,10 @@ void wfmain::changeTxBtn()
     if(amTransmitting)
     {
         ui->transmitBtn->setText("送信中");
-        ui->transmitBtn->setStyleSheet(QStringLiteral(
-            "QPushButton { background-color: #c8e6c9; color: crimson; "
-            "font-weight: bold; border-radius: 10px; padding: 4px 10px; }"));
+        ui->transmitBtn->setStyleSheet(wfview_transmitButtonStyleSheet(true));
     } else {
         ui->transmitBtn->setText("送信");
-        ui->transmitBtn->setStyleSheet(QStringLiteral(
-            "QPushButton { background-color: #c8e6c9; color: #202124; "
-            "font-weight: bold; border-radius: 10px; padding: 4px 10px; }"));
+        ui->transmitBtn->setStyleSheet(wfview_transmitButtonStyleSheet(false));
     }
 }
 
@@ -5381,6 +5403,14 @@ void wfmain::on_connectBtn_clicked()
 {
     this->rigStatus->setText(""); // Clear status
 
+    if (connStatus == connDisconnected && prefs.manufacturer == manufYaesu
+        && (prefs.radioCIVAddr == FT817_MODEL_ID || prefs.radioCIVAddr == FT818_MODEL_ID))
+    {
+        launchFt817Window();
+        ui->connectBtn->clearFocus();
+        return;
+    }
+
     if (connStatus == connDisconnected) {
         connectionHandler(true);
     }
@@ -5390,6 +5420,64 @@ void wfmain::on_connectBtn_clicked()
     }
 
     ui->connectBtn->clearFocus();
+}
+
+void wfmain::launchFt817Window()
+{
+    if (ft817Win)
+    {
+        ft817Win->show();
+        ft817Win->raise();
+        ft817Win->activateWindow();
+        return;
+    }
+
+    if (prefs.enableLAN)
+    {
+        QMessageBox::warning(this, tr("FT-817/818"),
+                             tr("FT-817/818 is supported over a USB-serial CAT cable only.\n"
+                                "Disable the network connection and select the COM port in Settings."));
+        return;
+    }
+
+    const QString port = prefs.serialPortRadio.trimmed();
+    if (port.isEmpty() || port.toLower() == QStringLiteral("auto"))
+    {
+        QMessageBox::warning(this, tr("FT-817/818"),
+                             tr("Select the COM port of the USB-serial CAT cable in Settings."));
+        return;
+    }
+
+    // The radio's CAT RATE menu only offers these speeds.
+    const quint32 baud = prefs.serialPortBaud;
+    if (baud != 4800 && baud != 9600 && baud != 38400)
+    {
+        QMessageBox::warning(this, tr("FT-817/818"),
+                             tr("FT-817/818 CAT supports 4800, 9600 or 38400 bps only (current: %1).\n"
+                                "Match the baud rate to the radio's CAT RATE menu.").arg(baud));
+        return;
+    }
+
+    ft817Win = new ft817Window(port, baud, prefs.radioCIVAddr == FT818_MODEL_ID);
+    connect(ft817Win, &ft817Window::closed, this, [this]() {
+        qInfo(logSystem()) << "FT-817/818 window closed, returning to the main window";
+        this->show();
+        this->raise();
+    });
+    if (!ft817Win->openPort())
+    {
+        QMessageBox::critical(this, tr("FT-817/818"),
+                              tr("Could not open %1. Check that the USB-serial adapter is connected "
+                                 "and not used by another program.").arg(port));
+        ft817Win->close();
+        return;
+    }
+
+    qInfo(logSystem()) << "Starting FT-817/818 window on" << port << "at" << baud;
+    if (setupui->isVisible())
+        setupui->hide();
+    this->hide();
+    ft817Win->show();
 }
 
 void wfmain::on_sqlSlider_valueChanged(int value)
@@ -6383,12 +6471,9 @@ void wfmain::useColorPreset(colorPrefsType *cp)
     ui->meter2Widget->setColors(cp->meterLevel, cp->meterPeakScale, cp->meterPeakLevel, cp->meterAverage, cp->meterLowerLine, cp->meterLowText);
     ui->meter3Widget->setColors(cp->meterLevel, cp->meterPeakScale, cp->meterPeakLevel, cp->meterAverage, cp->meterLowerLine, cp->meterLowText);
 
-    ui->scopeDualBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
-                                    .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-    ui->dualWatchBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
-                                    .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
-    ui->splitBtn->setStyleSheet(QString("QPushButton {background-color: %0;border-radius: 10px;} QPushButton:checked {background-color: %1;border: 1px solid;border-radius: 10px;}")
-                                    .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
+    ui->scopeDualBtn->setStyleSheet(wfview_buttonStyleSheet(QStringLiteral("")));
+    ui->dualWatchBtn->setStyleSheet(wfview_buttonStyleSheet(QStringLiteral("")));
+    ui->splitBtn->setStyleSheet(wfview_buttonStyleSheet(QStringLiteral("border-radius: 10px;")));
     //ui->mainSubTrackingBtn->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border: 1px solid;}")
     //                                .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
 
@@ -6566,7 +6651,7 @@ void wfmain::connectionHandler(bool connect)
     if (connect) {
         openRig();
     } else {
-        ui->connectBtn->setText("Connect to Radio");
+        ui->connectBtn->setText("無線機に接続");
         enableRigCtl(false);
         removeRig();
         // Stop time sync timer if running.
@@ -7888,7 +7973,7 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
 
         ui->memoriesBtn->setEnabled(rigCaps->commands.contains(funcMemoryContents));
 
-        ui->connectBtn->setText("Disconnect from Radio"); // We must be connected now.
+        ui->connectBtn->setText("無線機から切断"); // We must be connected now.
         connStatus = connConnected;
 
         // Now we know that we are connected, enable rigctld
