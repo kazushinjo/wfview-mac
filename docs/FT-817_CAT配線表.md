@@ -37,14 +37,14 @@ ACC の 1 番（+13.8V）、2 番（TX GND）、6 番（BAND DATA）、7 番（A
 ## wfview-mac 側の設定
 
 1. 設定画面でメーカーに **Yaesu** を選びます。
-2. 機種に「**FT-817 / 817ND (USB serial CAT)**」または「**FT-818 (USB serial CAT)**」を選びます。
+2. 機種に「**FT-817 / 817ND (USB serial CAT)**」または「**FT-818 (USB serial CAT)**」を選びます（`CI-Vアドレスを入力する` には起動時から自動でチェックが入っています）。
 3. シリアルポートに、このケーブルのポート（`cu.usbserial-…`、`cu.wchusbserial…` など）を指定します。CH340 は macOS 標準のドライバーで認識されます。
 4. ボーレートを、無線機の CAT RATE メニューと同じ値（4800 / 9600 / 38400）にします。
-5. 接続すると FT-817 画面に切り替わり、LCD に周波数が表示されれば通信できています。
+5. 設定画面の `無線機に接続` を押すと FT-817 画面が開きます。LCD に周波数が表示されれば通信できています。
 
 ## 関連資料
 
-- 画面の操作、トラブルシューティング：wfview-win の [FT-817 / FT-818 操作説明書（PDF）](https://github.com/kazushinjo/wfview-win/blob/master/docs/FT-817_操作説明書.pdf)（Windows 版の説明ですが、FT-817 画面の操作は同じです）
+- 画面の操作、トラブルシューティング：[FT-817 / FT-818 操作説明書](FT-817_操作説明書.md)（PDF 版: FT-817_操作説明書.pdf）
 
 ## 出典
 
