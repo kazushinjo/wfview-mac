@@ -137,6 +137,10 @@ settingswidget::settingswidget(QWidget *parent) :
     ui(new Ui::settingswidget)
 {
     ui->setupUi(this);
+    // Start with the model list usable (see ra_radioCIVAddr).
+    ui->rigCIVManualAddrChk->setChecked(true);
+    ui->rigCIVaddrCombo->setEnabled(true);
+    ui->useCIVasRigIDChk->setChecked(true);
 #ifdef WFVIEW_IOS
     // iOS apps are not quit from inside the app.
     ui->exitProgramBtn->hide();
@@ -1103,14 +1107,16 @@ void settingswidget::updateRaPref(prefRaItem pra)
     switch(pra)
     {
     case ra_radioCIVAddr:
-        quietlyUpdateCheckbox(ui->rigCIVManualAddrChk, prefs->radioCIVAddr != 0);
+        // "CI-Vアドレスを入力する" is always checked when settings are loaded,
+        // so the model list can be picked from right away.  Until a model is
+        // picked the address stays 0 (automatic).
+        quietlyUpdateCheckbox(ui->rigCIVManualAddrChk, true);
+        ui->rigCIVaddrCombo->setEnabled(true);
         if(prefs->radioCIVAddr == 0)
         {
             ui->rigCIVaddrCombo->setCurrentIndex(-1);
-            ui->rigCIVaddrCombo->setEditText("auto");
-            ui->rigCIVaddrCombo->setEnabled(false);
+            ui->rigCIVaddrCombo->setEditText(QString());
         } else {
-            ui->rigCIVaddrCombo->setEnabled(true);
             setCivComboToAddress(prefs->radioCIVAddr);
         }
         break;
@@ -2018,12 +2024,14 @@ void settingswidget::populateCivAddrCombo()
     if (ui->rigCIVaddrCombo->view() != Q_NULLPTR)
         ui->rigCIVaddrCombo->view()->setMinimumWidth(200);
 
-    const bool manualActive = prefs != Q_NULLPTR && prefs->radioCIVAddr != 0;
+    const bool manualActive = ui->rigCIVManualAddrChk->isChecked();
     ui->rigCIVaddrCombo->setEnabled(manualActive);
-    if (manualActive)
+    if (!manualActive)
+        ui->rigCIVaddrCombo->setEditText(QStringLiteral("auto"));
+    else if (prefs != Q_NULLPTR && prefs->radioCIVAddr != 0)
         setCivComboToAddress(prefs->radioCIVAddr);
     else
-        ui->rigCIVaddrCombo->setEditText(QStringLiteral("auto"));
+        ui->rigCIVaddrCombo->setEditText(QString());
 }
 
 void settingswidget::setCivComboToAddress(quint16 addr)
@@ -2045,7 +2053,10 @@ void settingswidget::on_rigCIVManualAddrChk_clicked(bool checked)
     if(checked)
     {
         ui->rigCIVaddrCombo->setEnabled(true);
-        setCivComboToAddress(prefs->radioCIVAddr);
+        if (prefs->radioCIVAddr != 0)
+            setCivComboToAddress(prefs->radioCIVAddr);
+        else
+            ui->rigCIVaddrCombo->setEditText(QString());
     } else {
         ui->rigCIVaddrCombo->setCurrentIndex(-1);
         ui->rigCIVaddrCombo->setEditText("auto");

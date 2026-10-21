@@ -2436,7 +2436,8 @@ void wfmain::loadSettings()
     settings->beginGroup("Radio");
     prefs.manufacturer = (manufacturersType_t)settings->value("Manufacturer", defPrefs.manufacturer).value<manufacturersType_t>();
     prefs.radioCIVAddr = (quint16)settings->value("RigCIVuInt", defPrefs.radioCIVAddr).toInt();
-    prefs.CIVisRadioModel = (bool)settings->value("CIVisRadioModel", defPrefs.CIVisRadioModel).toBool();
+    // Always start with "use CI-V address as model ID" checked.
+    prefs.CIVisRadioModel = true;
     prefs.pttType = (pttType_t)settings->value("PTTType", defPrefs.pttType).toInt();
     prefs.serialPortRadio = settings->value("SerialPortRadio", defPrefs.serialPortRadio).toString();
     prefs.serialPortBaud = (quint32)settings->value("SerialPortBaud", defPrefs.serialPortBaud).toInt();
@@ -3832,7 +3833,7 @@ bool wfmain::loadConnectionProfile(const QString& name)
     {
         prefs.manufacturer = static_cast<manufacturersType_t>(settings->value("Manufacturer", prefs.manufacturer).toInt());
         prefs.radioCIVAddr = static_cast<quint16>(settings->value("RigCIVuInt", prefs.radioCIVAddr).toInt());
-        prefs.CIVisRadioModel = settings->value("CIVisRadioModel", prefs.CIVisRadioModel).toBool();
+        prefs.CIVisRadioModel = true; // always checked when a profile is loaded
         prefs.pttType = static_cast<pttType_t>(settings->value("PTTType", prefs.pttType).toInt());
         prefs.polling_ms = settings->value("polling_ms", prefs.polling_ms).toInt();
         prefs.serialPortRadio = settings->value("SerialPortRadio", prefs.serialPortRadio).toString();
@@ -3874,7 +3875,7 @@ bool wfmain::loadConnectionProfile(const QString& name)
 
             prefs.manufacturer = static_cast<manufacturersType_t>(settings->value("Manufacturer", prefs.manufacturer).toInt());
             prefs.radioCIVAddr = static_cast<quint16>(settings->value("RigCIVuInt", prefs.radioCIVAddr).toInt());
-            prefs.CIVisRadioModel = settings->value("CIVisRadioModel", prefs.CIVisRadioModel).toBool();
+            prefs.CIVisRadioModel = true; // always checked when a profile is loaded
             prefs.pttType = static_cast<pttType_t>(settings->value("PTTType", prefs.pttType).toInt());
             prefs.polling_ms = settings->value("polling_ms", prefs.polling_ms).toInt();
             prefs.serialPortRadio = settings->value("SerialPortRadio", prefs.serialPortRadio).toString();
