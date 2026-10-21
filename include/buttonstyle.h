@@ -11,7 +11,7 @@
 #define WFVIEW_BTN_BG_CHECKED  "#4fc3f7"
 #define WFVIEW_BTN_BORDER      "#4fa3c7"
 #define WFVIEW_BTN_TEXT        "#202124"
-#define WFVIEW_BTN_FONT_SIZE   "11pt"
+#define WFVIEW_BTN_FONT_SIZE   "13pt"
 
 static inline QString wfview_buttonStyleSheet()
 {

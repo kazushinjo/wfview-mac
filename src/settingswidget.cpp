@@ -147,7 +147,7 @@ settingswidget::settingswidget(QWidget *parent) :
 #endif
 
     // Bottom row (save / defaults / connect / exit): larger than the
-    // application-wide 11pt buttons.
+    // application-wide 13pt buttons.
     for (QPushButton *b : {ui->saveSettingsBtn, ui->revertSettingsBtn,
                            ui->connectBtn, ui->exitProgramBtn})
         b->setStyleSheet(wfview_largeButtonStyleSheet());
