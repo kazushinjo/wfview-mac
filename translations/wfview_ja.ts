@@ -2723,7 +2723,7 @@ ONLY use Manual CI-V when Transceive mode is not supported</source>
     <message>
         <location filename="../src/settingswidget.ui" line="249"/>
         <source>Serial Device:</source>
-        <translation>シアルポート番号</translation>
+        <translation>シリアルポート番号</translation>
     </message>
     <message>
         <location filename="../src/settingswidget.ui" line="275"/>
@@ -3508,7 +3508,7 @@ ONLY use Manual CI-V when Transceive mode is not supported</source>
     <message>
         <location filename="../src/settingswidget.ui" line="896"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;You &lt;span style=&quot; font-weight:700;&quot;&gt;MUST&lt;/span&gt; disconnect from the radio before making any changes in the above form.&lt;br/&gt;&lt;br/&gt;Please use the &lt;span style=&quot; font-style:italic;&quot;&gt;Connect/Disconnect &lt;/span&gt;button below&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;上の設定を変更するときは、&lt;span style=&quot; font-weight:700;&quot;&gt;必ず先に無線機から切断&lt;/span&gt;してください。&lt;br/&gt;&lt;br/&gt;接続と切断は、下の &lt;span style=&quot; font-style:italic;&quot;&gt;無線機に接続&lt;/span&gt; / &lt;span style=&quot; font-style:italic;&quot;&gt;切断して戻る&lt;/span&gt; ボタンで行います。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../src/settingswidget.ui" line="981"/>
