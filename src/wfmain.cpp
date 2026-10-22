@@ -1,6 +1,7 @@
 #include "wfmain.h"
 #include "icomserver.h"
 #include "ft817window.h"
+#include "kx3window.h"
 #include "ui_wfmain.h"
 
 #include "rigidentities.h"
@@ -781,6 +782,14 @@ void wfmain::openRig()
     {
         QTimer::singleShot(0, this, [this]() {
             QTimer::singleShot(0, this, &wfmain::launchFt817Window);
+        });
+        return;
+    }
+    // Likewise the Elecraft KX3/KX2 (the only Elecraft radios supported).
+    if (prefs.manufacturer == manufElecraft)
+    {
+        QTimer::singleShot(0, this, [this]() {
+            QTimer::singleShot(0, this, &wfmain::launchKx3Window);
         });
         return;
     }
@@ -5441,6 +5450,13 @@ void wfmain::on_connectBtn_clicked()
         return;
     }
 
+    if (connStatus == connDisconnected && prefs.manufacturer == manufElecraft)
+    {
+        launchKx3Window();
+        ui->connectBtn->clearFocus();
+        return;
+    }
+
     if (connStatus == connDisconnected) {
         if (startupSettingsOnly)
         {
@@ -5532,6 +5548,75 @@ void wfmain::launchFt817Window()
     ft817Win->show();
 }
 
+void wfmain::launchKx3Window()
+{
+    if (kx3Win)
+    {
+        kx3Win->show();
+        kx3Win->raise();
+        kx3Win->activateWindow();
+        return;
+    }
+
+    if (prefs.enableLAN)
+    {
+        QMessageBox::warning(this, tr("KX3"),
+                             tr("KX3 は USB シリアル CAT ケーブルでのみ接続できます。\n"
+                                "設定でネットワーク接続を OFF にし、シリアルポートを選択してください。"));
+        return;
+    }
+
+    const QString port = prefs.serialPortRadio.trimmed();
+    if (port.isEmpty() || port.toLower() == QStringLiteral("auto"))
+    {
+        QMessageBox::warning(this, tr("KX3"),
+                             tr("設定で USB シリアル CAT ケーブルのポートを選択してください。"));
+        return;
+    }
+
+    // Speeds of the radio's RS232 menu (factory default 4800).
+    const quint32 baud = prefs.serialPortBaud;
+    if (baud != 4800 && baud != 9600 && baud != 19200 && baud != 38400)
+    {
+        QMessageBox::warning(this, tr("KX3"),
+                             tr("KX3 の CAT は 4800 / 9600 / 19200 / 38400 bps のみです（現在: %1）。\n"
+                                "本体の RS232 メニューと同じボーレートにしてください。").arg(baud));
+        return;
+    }
+
+    kx3Win = new kx3Window(port, baud);
+    connect(kx3Win, &kx3Window::closed, this, [this]() {
+        qInfo(logSystem()) << "KX3 window closed, returning to the Settings window";
+        showStartupSettings();
+    });
+    connect(kx3Win, &kx3Window::exitRequested, this, [this]() {
+        // The user already confirmed in the KX3 window, so no second
+        // "exit?" question; unsaved settings are still asked about.
+        if (doExit(false))
+        {
+            kx3Win->close();        // exit cancelled: back to the Settings window
+            return;
+        }
+        kx3Win->blockSignals(true);
+        kx3Win->close();
+    });
+    if (!kx3Win->openPort())
+    {
+        QMessageBox::critical(this, tr("KX3"),
+                              tr("%1 を開けませんでした。USB シリアルケーブルの接続と、"
+                                 "他のプログラムが使用していないかを確認してください。").arg(port));
+        kx3Win->close();
+        return;
+    }
+
+    qInfo(logSystem()) << "Starting KX3 window on" << port << "at" << baud;
+    startupSettingsOnly = false;
+    if (setupui->isVisible())
+        setupui->hide();
+    this->hide();
+    kx3Win->show();
+}
+
 void wfmain::showStartupSettings()
 {
     startupSettingsOnly = true;
@@ -5543,7 +5628,7 @@ void wfmain::loadProfileForSettings()
 {
     // The Settings window always starts from the selected connection profile,
     // but not while a radio is in use: that would change settings under it.
-    if (connStatus != connDisconnected || (ft817Win && !startupSettingsOnly))
+    if (connStatus != connDisconnected || ((ft817Win || kx3Win) && !startupSettingsOnly))
         return;
     if (currentConnectionProfile.isEmpty())
         return;

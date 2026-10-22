@@ -1,5 +1,6 @@
 #include "settingswidget.h"
 #include "ft817window.h"
+#include "kx3window.h"
 #include "buttonstyle.h"
 #include "qserialportinfo.h"
 #include "ui_settingswidget.h"
@@ -465,6 +466,7 @@ void settingswidget::populateComboBoxes()
     ui->manufacturerCombo->addItem("Icom",manufIcom);
     ui->manufacturerCombo->addItem("Kenwood",manufKenwood);
     ui->manufacturerCombo->addItem("Yaesu",manufYaesu);
+    ui->manufacturerCombo->addItem("Elecraft",manufElecraft);
     //ui->manufacturerCombo->addItem("FlexRadio",manufFlexRadio);
     ui->manufacturerCombo->setCurrentIndex(0);
     ui->manufacturerCombo->blockSignals(false);
@@ -1986,7 +1988,13 @@ void settingswidget::populateCivAddrCombo()
     ui->rigCIVaddrCombo->blockSignals(true);
     ui->rigCIVaddrCombo->clear();
 
-    if (rigList != Q_NULLPTR && !rigList->isEmpty())
+    if (prefs != Q_NULLPTR && prefs->manufacturer == manufElecraft)
+    {
+        // The Elecraft KX3/KX2 has no rig definition file: its text CAT is
+        // driven by its own window (see kx3window.h).
+        ui->rigCIVaddrCombo->addItem(QStringLiteral("KX3 / KX2 (USB serial CAT)"), KX3_MODEL_ID);
+    }
+    else if (rigList != Q_NULLPTR && !rigList->isEmpty())
     {
         // Model name + address/ID from the .rig definition files of the
         // currently selected manufacturer (works for Icom, Kenwood, Yaesu).
@@ -2347,6 +2355,13 @@ void settingswidget::on_manufacturerCombo_currentIndexChanged(int value)
     ui->catPortTxt->setText(QString::number(udpPrefs->serialLANPort));
     ui->audioPortTxt->setText(QString::number(udpPrefs->audioLANPort));
     ui->scopePortTxt->setText(QString::number(udpPrefs->scopeLANPort));
+
+    // Elecraft has a single entry; select it so the connection opens the KX3 window.
+    if (prefs->manufacturer == manufElecraft && prefs->radioCIVAddr != KX3_MODEL_ID)
+    {
+        prefs->radioCIVAddr = KX3_MODEL_ID;
+        emit changedRaPref(ra_radioCIVAddr);
+    }
 
     // Rebuild the CI-V address list to match the selected manufacturer.
     populateCivAddrCombo();

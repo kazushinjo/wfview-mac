@@ -399,6 +399,7 @@ DEFINES += "EXPORT="
 SOURCES += \
     src/aboutbox.cpp \
     src/ft817window.cpp \
+    src/kx3window.cpp \
     src/audio/adpcm/adpcm-dns.c \
     src/audio/adpcm/adpcm-lib.c \
     src/audio/audioconverter.cpp \
@@ -494,6 +495,7 @@ SOURCES += \
 
 HEADERS  += \
     include/ft817window.h \
+    include/kx3window.h \
     src/audio/adpcm/adpcm-lib.h \
     src/audio/resampler/resample_neon.h \
     src/audio/resampler/speex_resampler.h \
